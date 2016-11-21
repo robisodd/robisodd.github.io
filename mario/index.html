@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<!-- ---------------------------------------------------------------------- -->
+<head>
+<meta charset="utf-8" />
+<style type="text/css">
+canvas {
+	border:0px solid black;
+}
+
+body {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+#scrolldiv {
+	width: 100%;
+	height: 400px;
+	overflow: auto;
+	overflow-y: hidden;
+	white-space: nowrap
+}
+
+</style>
+</head>
+<!-- ---------------------------------------------------------------------- -->
+<body>
+<div id='scrolldiv'>
+<canvas id="grid"    width="1" height="1"></canvas><br>
+</div>
+<canvas id="palette" width="1" height="1"></canvas><br>
+<input type="button" value="refresh" onclick="draw_level();">
+<input type="button" value="clear"   onclick="clear_board();draw_level();">
+<input type="button" value="do it"   onclick="do_it();">
+<br>
+<img id="out_image" src="" height="1" width="1">
+<br>
+<div id="output"></div><br>
+<!-- ---------------------------------------------------------------------- -->
+<script language="javascript" type="text/javascript">
+
+function do_it() {
+	
+}
+
+var zoom;
+var grid    = {};
+var pal     = {};
+
+
+// User Settable Variables
+zoom        = 2;
+grid.width  = 200;
+grid.height = 10;
+pal.width   = 50;
+pal.height  = 4;
+
+var background_color = "#5AF";
+var blank_tile = 63;
+
+var selected_type = 50;
+var update_type = 1;
+var isMouseDown = false;
+
+
+var output = document.getElementById("output");
+var out_image = document.getElementById("out_image");
+var out_canvas = document.createElement('canvas');
+var out_ctx = out_canvas.getContext("2d");
+
+
+grid.data   = new Uint8ClampedArray(grid.width * grid.height);
+var grid_canvas = document.getElementById("grid");
+var grid_ctx = grid_canvas.getContext("2d");
+grid_canvas.width  = grid.width  * 16 * zoom + grid.width  + 1;
+grid_canvas.height = grid.height * 16 * zoom + grid.height + 1;
+grid_ctx.imageSmoothingEnabled = false;
+
+
+pal.sprite = new Uint8ClampedArray(pal.width * pal.height);
+var pal_canvas = document.getElementById("palette");
+var pal_ctx = pal_canvas.getContext("2d");
+pal_canvas.width  = pal.width  * 16 * zoom + pal.width  + 1;
+pal_canvas.height = pal.height * 16 * zoom + pal.height + 1;
+pal_ctx.imageSmoothingEnabled = false;
+
+
+
+// Load Sprite Sheet, then init upon load
+var sprite_sheet = new Image();
+sprite_sheet.onload = function() {
+	clear_board();
+	load_palette();
+	draw_palette();
+	draw_level();
+}
+sprite_sheet.src = "newspritesheet.png";
+
+
+function load_palette() {
+	//pal.sprite[0] = 255;
+	//pal.sprite[1] = 1;
+	//pal.sprite[2] = 3;
+	//pal.sprite[3] = 5;
+	//pal.sprite[4] = 7;
+	//pal.sprite[5] = 12;
+	//pal.sprite[6] = 16;
+	//pal.sprite[7] = 0;
+	//pal.sprite[8] = 9;
+	//pal.sprite[9] = 11;
+
+	for(var y = 0; y < pal.height; y++) {
+		for(var x = 0; x < pal.width; x++) {
+			pal.sprite[y*pal.width + x] = y * pal.width + x;
+		}
+	}
+	pal.sprite[63] = 255;
+}
+
+
+function draw_palette() {
+	draw_grid(pal_ctx, pal);
+
+	for(var y = 0; y < pal.height; y++) {
+		for(var x = 0; x < pal.width; x++) {
+			draw_tile(pal_ctx, x, y, pal.sprite[y * pal.width + x]);
+		}
+	}
+}
+
+
+function clear_board() {
+	// Delete level, replace with 
+	grid.data.fill(blank_tile);
+	
+	// Add Ground 1-high
+	for(var y = grid.height - 1; y < grid.height; y++) {
+		for(var x = 0; x < grid.width; x++) {
+			//grid.data[y * grid.width + x] = 1;
+			grid.data[y * grid.width + x] = 3;
+		}
+	}
+}
+
+
+
+function draw_tile(ctx, x, y, tile) {
+	var dest_x = x * 16 * zoom + x + 1;
+	var dest_y = y * 16 * zoom + y + 1;
+
+	ctx.fillStyle = background_color;
+	ctx.fillRect(dest_x, dest_y, 16 * zoom, 16 * zoom);
+		
+	if(tile == 255) return;
+
+	var source_x = (tile % pal.width) * 16;
+	var source_y = Math.trunc(tile / pal.width) * 16;
+	ctx.drawImage(sprite_sheet, source_x, source_y, 16, 16, dest_x, dest_y, 16 * zoom, 16 * zoom);
+}
+
+
+function update_out_image() {
+	out_canvas.width  = grid.width;
+	out_canvas.height = grid.height;
+
+	var imageData = out_ctx.getImageData(0, 0, grid.width, grid.width);
+	var data = new Uint8ClampedArray(imageData.data.length);
+
+	for (var y = 0; y < grid.height; ++y) {
+		for (var x = 0; x < grid.width; ++x) {
+			var index = (y * grid.width + x) * 4;
+			data[index]   = 255; // red
+			data[++index] = 0;   // green
+			data[++index] = 0;   // blue
+			data[++index] = 255; // alpha
+		}
+	}
+	imageData.data.set(data);
+	out_ctx.putImageData(imageData, 0, 0);
+	out_image.src = out_canvas.toDataURL();
+	out_image.width = grid.width;
+	out_image.height = grid.height;
+}
+
+function draw_grid(ctx, data) {
+	var grid_color = "#000000";
+	ctx.strokeStyle = grid_color;
+	ctx.lineWidth = 1;
+	ctx.beginPath();
+
+	for (var y = 0; y <= data.height; ++y) {
+		ctx.moveTo(0,                y * 16 * zoom + y + 0.5);
+		ctx.lineTo(ctx.canvas.width, y * 16 * zoom + y + 0.5);
+	}
+
+	for (var x = 0; x <= data.width; ++x) {
+		ctx.moveTo(x * 16 * zoom + x + 0.5, 0                );
+		ctx.lineTo(x * 16 * zoom + x + 0.5, ctx.canvas.height);
+	}
+	ctx.stroke();
+}
+
+
+function draw_tiles(ctx, data) {
+	for(var y = 0; y < data.height; ++y) {
+		for(var x = 0; x < data.width; ++x) {
+			var value = pal.sprite[data.data[y * data.width + x]];
+			
+			draw_tile(ctx, x, y, value);
+		}
+	}
+}
+
+
+function draw_square(ctx, x, y, color) {
+	var dest_x = x * 16 * zoom + x + 1;
+	var dest_y = y * 16 * zoom + y + 1;
+	ctx.fillStyle = color;
+	ctx.fillRect(dest_x, dest_y, 16, 16);
+}
+
+
+function draw_level() {
+	// Background
+	grid_ctx.fillStyle = "green";
+	grid_ctx.fillRect(0, 0, grid_canvas.width, grid_canvas.height);
+
+	// Grid
+	draw_grid(grid_ctx, grid);
+
+	// Tiles
+	draw_tiles(grid_ctx, grid);
+
+	// Tiny Picture
+	update_out_image();
+}
+
+
+function update_mouse() {
+output.innerHTML = mouseX + ", " + mouseY + ": " + isMouseDown;
+}
+
+
+
+function update_tile(x, y, type) {
+	var tile = {};
+	// Don't work if clicking on border
+	//tile.x = x % (17 * zoom);
+	//tile.y = y % (17 * zoom);
+	//if (tile.x == 0 || tile.y == 0) return false; // we're on a border edge
+	
+	//var x2 = Math.trunc(x / (17 * zoom));
+	//var y2 = Math.trunc(y / (17 * zoom));
+	//output.innerHTML = "(" + x + ", " + y + ") -> (" + x2 + ", " + y2 + ")";
+	
+	//grid.width  * 16 * zoom + grid.width  + 1;
+	
+	x = Math.trunc(x / ((16 * zoom) + 1));
+	y = Math.trunc(y / ((16 * zoom) + 1));
+
+	if (x < 0 || x >= grid.width ) return false; // out of bounds
+	if (y < 0 || y >= grid.height) return false; // out of bounds
+
+	var index = y * grid.width + x;
+
+	// If Mouse Down
+	if (type == -1) {
+		if (grid.data[index] == selected_type)
+			update_type = blank_tile;
+		else
+			update_type = selected_type;
+	}
+
+	// Mouse Move
+	if(grid.data[index] == update_type) return false; // tile already set
+	grid.data[index] = update_type;
+
+	draw_tile(grid_ctx, x, y, pal.sprite[update_type]);
+
+	return true;
+}
+
+
+
+grid_canvas.addEventListener("mousedown", function (evt) {
+	if (update_tile(evt.offsetX, evt.offsetY, -1)) {
+		isMouseDown = true;
+	}
+});
+
+
+window.addEventListener("mouseup", function (evt) {
+    isMouseDown = false;
+});
+
+
+grid_canvas.addEventListener("mousemove",function (evt) {
+	if (isMouseDown)
+		update_tile(evt.offsetX, evt.offsetY, update_type)
+});
+
+
+
+pal_canvas.addEventListener("mousedown", function (evt) {
+	var x = Math.trunc(evt.offsetX / ((16 * zoom) + 1));
+	var y = Math.trunc(evt.offsetY / ((16 * zoom) + 1));
+	if (x < 0 || x >= pal.width)  return; // out of bounds
+	if (y < 0 || y >= pal.height) return; // out of bounds
+	selected_type = y * pal.width + x;
+	//console.log("Selected: " + selected_type);
+});
+
+</script>
+<!-- ---------------------------------------------------------------------- -->
+</body>
+</html>
