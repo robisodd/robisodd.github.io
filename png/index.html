@@ -102,8 +102,10 @@
 	<div id="content" style="height:100%; width:100%; background:green;">
 		<div id="toparea" style="width:100%; background:red;">
 			<form>
-				URL:<input type="text" id="theurl" value="https://i.imgur.com/N377J99.png"><br>
-				<input type="submit" id="update_button" value="Load URL and Reset"><br>
+				Image Source:<input type="text" id="theurl" value="https://i.imgur.com/N377J99.png"><br>
+				<input type="submit" id="update_button" value="Load URL and Reset">
+				
+				<br>
 				<input type="checkbox" onclick="set_zoom(this.checked);"/>Zoom
 				<input type="checkbox" onclick="set_fuzzy(this.checked);"/>Fuzzy
 				<br>
@@ -118,12 +120,13 @@
 				Colors:
 				<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_BW);">B&W
 				<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_6BIT_COLOR);" checked>64-Color
-				<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_2BIT_GRAYSCALE);">Greyscale
+				<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_6BIT_COLOR);" disabled='disabled'>16-Color
+				<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_2BIT_GRAYSCALE);">Grayscale
 				<br>
 				Watch:
-				<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_ORIGINAL);">Original
+				<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_ORIGINAL);" checked>Original
 				<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_APLITE);">Aplite
-				<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_BASALT);" checked>Basalt
+				<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_BASALT);">Basalt
 				<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_CHALK);">Chalk
 				<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_DIORITE);">Diorite
 				<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_EMERY);">Emery
@@ -147,7 +150,7 @@
 			</div>
 		</div>
 		<div>
-		<canvas id="tempCanvas" width="30" height="30" style="border:1px solid #d3d3d3;border-radius: 0px; visibility: hidden;">Your browser does not support the HTML5 canvas tag.</canvas>
+			<canvas id="tempCanvas" width="30" height="30" style="border:1px solid #d3d3d3;border-radius: 0px; visibility: hidden;">Your browser does not support the HTML5 canvas tag.</canvas>
 		</div>
 		
 	</div>
@@ -160,6 +163,7 @@
 	// =======================================================================================================
 	var brightness=0;
 	var contrast=0;
+	var fuzzy_mode = false;  // Whether zoomed pixels are blocks or blurred
 	
 	var watchBody = document.getElementById("watchBody");
 	var canvasDiv = document.getElementById("canvasDiv");
@@ -517,6 +521,15 @@ document.getElementById("update_button").addEventListener("click", function(e){
 });
 
 
+function set_fuzzy(value) {
+	if(value==true) {
+		fuzzy_mode = true;
+	} else {
+		fuzzy_mode = false;
+	}
+	mainCanvasCTX.imageSmoothingEnabled = fuzzy_mode;
+	update_canvas();
+}
 
 
 
