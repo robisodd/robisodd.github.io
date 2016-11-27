@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<!-- http://meyerweb.com/eric/thoughts/2007/05/01/reset-reloaded/ -->
+<!-- Dithering From: https://github.com/dpiccone/ditherjs -->
+<!-- Brightness/Contrast from: https://github.com/meltingice/CamanJS -->
+<!-- Copy/Paste from: http://joelb.me/blog/2011/code-snippet-accessing-clipboard-images-with-javascript/ -->
+
+<html style="height:100%;">
+<head>
+<style>
+	* {
+		margin: 0;
+		padding: 0;
+	}
+
+	table {
+		border-collapse: collapse;
+	}
+
+	input[type=range] {
+		-webkit-appearance: none;
+		background-color: silver;
+		width: 75%;
+		height:50px;
+	}
+
+	input[type="range"]::-webkit-slider-thumb {
+		 -webkit-appearance: none;
+		background-color: #666;
+		opacity: 0.5;
+		width: 50px;
+		height: 50px;
+	}
+	
+	canvas {
+		image-rendering: optimizeSpeed;
+		image-rendering: pixelated;
+		border-radius: 6px;
+	}
+	
+	
+	#watchBodyDiv {
+		position: absolute;
+		left: 0;
+		right: 0;
+		margin-left: auto;
+		margin-right: auto;
+	}
+	
+	#canvasDiv {
+		position: absolute;
+		left: 0;
+		right: 0;
+		margin-left: auto;
+		margin-right: auto;
+		padding: 92px 0px;
+	}
+	
+	#lowerarea {
+		position: relative;
+		background: blue;
+		width: 100%;
+	}
+	
+</style>
+
+<script>
+	var COLOR_MODE_BW = 0;
+	var COLOR_MODE_2BIT_GRAYSCALE = 1;
+	var COLOR_MODE_1BIT_COLOR = 2;
+	var COLOR_MODE_2BIT_COLOR = 3;
+	var COLOR_MODE_4BIT_COLOR = 4;
+	var COLOR_MODE_6BIT_COLOR = 5;
+	
+	var DITHER_MODE_ORIGINAL   = 0;
+	var DITHER_MODE_NONE       = 1;
+	var DITHER_MODE_ORDERED    = 2;
+	var DITHER_MODE_ATKINSON   = 3;
+	var DITHER_MODE_DIFFUSION  = 4;
+	var DITHER_MODE_FLOYDSTEIN = 5;
+	
+	var WATCH_TYPE_ORIGINAL = 0;
+	var WATCH_TYPE_APLITE   = 1;
+	var WATCH_TYPE_BASALT   = 2;
+	var WATCH_TYPE_CHALK    = 3;
+	var WATCH_TYPE_DIORITE  = 4;
+	var WATCH_TYPE_EMERY    = 5;
+	
+	var BODY_APLITE = "https://raw.githubusercontent.com/pebble/cloudpebble/master/ide/static/ide/img/pebbles/tintin-black.png";
+	var BODY_BASALT = "http://pebble.github.io/rockyjs/img/basaltLight.png";
+	var BODY_CHALK = "https://raw.githubusercontent.com/pebble/cloudpebble/master/ide/static/ide/img/pebbles/black-20mm-hole.png";
+	var BODY_DIORITE = "";
+	var BODY_EMERY = "";
+	
+	var CHALK_MASK = "https://developer.pebble.com/assets/images/guides/pebble-apps/display-animations/mask.png"; // Fails, cross-site
+		CHALK_MASK = "http://i.imgur.com/7X0jVnR.png";
+	
+</script>
+</head>
+<!-- ---------------------------------------------------------------------------------------------------------------------------------------- -->
+<body onload="load_url();" style="height:100%;">
+<center>
+	<div id="content" style="height:100%; width:100%; background:green;">
+		<div id="toparea" style="width:100%; background:red;">
+			<form>
+				URL:<input type="text" id="theurl" value="https://i.imgur.com/N377J99.png"><br>
+				<input type="submit" id="update_button" value="Load URL and Reset"><br>
+				<input type="checkbox" onclick="set_zoom(this.checked);"/>Zoom
+				<input type="checkbox" onclick="set_fuzzy(this.checked);"/>Fuzzy
+				<br>
+				Dithering:
+				<input type="radio" name="dithering"  onclick="update_dither_mode(DITHER_MODE_ORIGINAL);" checked>Original Image
+				<input type="radio" name="dithering"  onclick="update_dither_mode(DITHER_MODE_NONE);">No Dither
+				<input type="radio" name="dithering"  onclick="update_dither_mode(DITHER_MODE_ORDERED);">Ordered
+				<input type="radio" name="dithering"  onclick="update_dither_mode(DITHER_MODE_ATKINSON);">Atkinson
+				<input type="radio" name="dithering"  onclick="update_dither_mode(DITHER_MODE_DIFFUSION);">Diffusion
+				<input type="radio" name="dithering"  onclick="update_dither_mode(DITHER_MODE_FLOYDSTEIN);">Floyd-Steinberg
+				<br>
+				Colors:
+				<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_BW);">B&W
+				<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_6BIT_COLOR);" checked>64-Color
+				<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_2BIT_GRAYSCALE);">Greyscale
+				<br>
+				Watch:
+				<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_ORIGINAL);">Original
+				<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_APLITE);">Aplite
+				<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_BASALT);" checked>Basalt
+				<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_CHALK);">Chalk
+				<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_DIORITE);">Diorite
+				<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_EMERY);">Emery
+				<br>
+				<input type="button" value="Fit Width"  onclick="fit_width();"/>
+				<input type="button" value="Fit Height" onclick="fit_height();"/>
+				<br>
+				Brightness: <input type="range" min="-255" max="255" value="0" step="1" oninput="set_brightness(this.value)" /><span id="brightness">0</span>
+				<br>
+				Contrast:   <input type="range" min="-255" max="255" value="0" step="1" oninput="set_contrast(this.value)" /><span id="contrast">0</span>
+				<br>
+			</form>
+		</div>
+		
+		<div id="lowerarea">
+			<div id="watchBodyDiv">
+				<img id="watchBody"/>
+			</div>
+			<div id="canvasDiv">
+				<canvas id="mainCanvas" width="144" height="168" style="border:1px solid #d3d3d3;">Your browser does not support the HTML5 canvas tag.</canvas>
+			</div>
+		</div>
+		<div>
+		<canvas id="tempCanvas" width="30" height="30" style="border:1px solid #d3d3d3;border-radius: 0px; visibility: hidden;">Your browser does not support the HTML5 canvas tag.</canvas>
+		</div>
+		
+	</div>
+</center>
+<!-- ---------------------------------------------------------------------------------------------------------------------------------------- -->
+<script>
+
+	// =======================================================================================================	
+	//  Global, Init and Canvas
+	// =======================================================================================================
+	var brightness=0;
+	var contrast=0;
+	
+	var watchBody = document.getElementById("watchBody");
+	var canvasDiv = document.getElementById("canvasDiv");
+	var theurl    = document.getElementById("theurl");
+	
+	// mainCanvas is the image on the screen
+	var mainCanvas = document.getElementById("mainCanvas");
+	var mainCanvasCTX = document.getElementById("mainCanvas").getContext("2d");
+	mainCanvasCTX.imageSmoothingEnabled = false;
+	var canvas_w = mainCanvas.width, canvas_h = mainCanvas.height;
+	
+	var tempCanvas = document.getElementById("tempCanvas");
+	var tempCanvasCTX = document.getElementById("tempCanvas").getContext("2d");
+	tempCanvasCTX.imageSmoothingEnabled = false;
+	
+	var toparea   = document.getElementById("toparea");
+	
+	var lowerarea = document.getElementById("lowerarea");
+	
+	// imageCanvas holds the whole scaled, dithered image
+	var imageCanvas = document.createElement("canvas");
+	var imageCanvasCTX = imageCanvas.getContext("2d");
+		
+	var image_x = 0, image_y = 0;
+	var zoom = 1;
+	var mouse_x = 0, mouse_y = 0, finger_dist = 0;
+	var mouse_mode = 0;
+	
+	var dither_mode = DITHER_MODE_ORIGINAL;
+	var color_mode  = COLOR_MODE_6BIT_COLOR;
+	var watch_type  = WATCH_TYPE_ORIGINAL;
+	
+	var background_color = "#00AAFF";
+	
+	var chalk_mask = new Image();
+	chalk_mask.crossOrigin = "Anonymous";
+	chalk_mask.src = CHALK_MASK;
+		
+	var source_image_obj = new Image();
+	source_image_obj.addEventListener('load', function() {image_loaded();}, false); // Reset (x,y,zoom) when new image loads
+	
+	function image_loaded() {
+		console.log("Image finished loading from URL");
+		reset_settings();
+		//draw_original_image_to_canvas(mainCanvasCTX);
+		//dither_imageCanvas_onto_fixedCanvas();
+		update_canvas();
+	}
+	
+	function load_url() {
+		// When image is finished loading from the source, image_loaded() is called (due to the "load" event listener above)
+		console.log("Downading image from URL: " + theurl.value);
+		source_image_obj.crossOrigin = "Anonymous";
+		source_image_obj.src = theurl.value;
+	}
+	
+	function update_canvas() {
+		if(watch_type == WATCH_TYPE_ORIGINAL) {
+			mainCanvas.height = source_image_obj.height / zoom;
+			mainCanvas.width  = source_image_obj.width / zoom;
+			image_x = source_image_obj.width  / 2;
+			image_y = source_image_obj.height / 2;
+		}
+		
+		draw_original_image_to_maincanvas();
+		convert_canvas_colors(mainCanvasCTX);
+		//draw_original_image_to_tempcanvas();
+
+		//draw_original_image_to_canvas(tempCanvasCTX);
+		//adjust_mainCanvas();
+		//convert_canvas_colors(tempCanvasCTX);
+		//draw_imageCanvas_to_mainCanvas();
+		
+		if(watch_type == WATCH_TYPE_CHALK) {
+			mainCanvasCTX.drawImage(chalk_mask, 0, 0);
+		}
+	}
+	
+	function check_image_bounds(width, height) {
+		// Keep picture in bounds
+		if(image_x - (width  * zoom / 2) > source_image_obj.width ) image_x = source_image_obj.width  + (width  * zoom / 2);
+		if(image_y - (height * zoom / 2) > source_image_obj.height) image_y = source_image_obj.height + (height * zoom / 2);
+		if(image_x + (width  * zoom / 2) < 0)                       image_x =                       0 - (width  * zoom / 2);
+		if(image_y + (height * zoom / 2) < 0)                       image_y =                       0 - (height * zoom / 2);
+	}
+	
+	function draw_original_image_to_maincanvas() {
+		var ctx = mainCanvasCTX;
+		// Keep picture in bounds
+		check_image_bounds(ctx.canvas.width, ctx.canvas.height);
+		// Draw the scaled image onto the canvas
+		ctx.fillStyle = background_color;
+		ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+		ctx.drawImage(source_image_obj, image_x - (ctx.canvas.width * zoom / 2), image_y - (ctx.canvas.height * zoom / 2), ctx.canvas.width * zoom, ctx.canvas.height * zoom, 0, 0, ctx.canvas.width, ctx.canvas.height);
+	}
+	
+	function draw_original_image_to_tempcanvas() {
+		var ctx = tempCanvasCTX;
+		// Change Canvas Size to mainCavas's or image's size, whichever is smaller
+		//var temp_x = (source_image_obj.width  < zoom*mainCanvas.width ) ? 0 : image_x - (ctx.canvas.width * zoom / 2);
+		//var temp_y = (source_image_obj.height  < zoom*mainCanvas.height ) ? 0 : image_y - (ctx.canvas.height * zoom / 2);
+		tempCanvas.width  = source_image_obj.width  / zoom;
+		tempCanvas.height = source_image_obj.height / zoom;
+		// Draw the scaled image onto the canvas
+		ctx.drawImage(source_image_obj, 0, 0, ctx.canvas.width * zoom, ctx.canvas.height * zoom, 0, 0, ctx.canvas.width, ctx.canvas.height);
+	}
+	
+	function draw_imageCanvas_to_mainCanvas() {
+		var ctx = mainCanvasCTX;
+		check_image_bounds(canvas_w, canvas_h);
+		// Draw the scaled image onto the canvas
+		mainCanvasCTX.fillStyle = background_color;
+		mainCanvasCTX.fillRect(0, 0, canvas_w, canvas_h);
+		ctx.drawImage(tempCanvas, image_x - (ctx.canvas.width * zoom / 2), image_y - (ctx.canvas.height * zoom / 2), ctx.canvas.width, ctx.canvas.height, 0, 0, ctx.canvas.width, ctx.canvas.height);
+	}
+
+	function convert_canvas_colors(ctx) {
+		var imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height); // copies data
+		var data = new Uint8ClampedArray(imageData.data.buffer); // data is a view (a pointer), doesn't copy data
+		var w = ctx.canvas.width;
+		var h = ctx.canvas.height;
+		
+		brightness_contrast(data, brightness, contrast);
+		
+		switch (color_mode) {
+			case COLOR_MODE_BW:
+				switch (dither_mode) {
+					case DITHER_MODE_ORIGINAL:   original_image(data);           break;
+					case DITHER_MODE_NONE:       robClosestBW(data);             break;
+					case DITHER_MODE_ORDERED:    robOrderedDitherBW(data, w, h); break;
+					case DITHER_MODE_ATKINSON:   robAtkinsonDitherBW(data, w);   break;
+					case DITHER_MODE_DIFFUSION:                                  break;
+					case DITHER_MODE_FLOYDSTEIN:                                 break;
+					default:                    original_image(data);
+					console.log("Unknown Dither Mode: " + dither_mode);
+				}
+			break;
+			/*
+			case COLOR_MODE_2BIT_GRAYSCALE:
+				switch (dither_mode) {
+					case DITHER_MODE_ORIGINAL:   original_image(data);           break;
+					case DITHER_MODE_NONE:       robClosestGS(data);             break;
+					case DITHER_MODE_ORDERED:    robOrderedDitherGS(data, w, h); break;
+					case DITHER_MODE_ATKINSON:   robAtkinsonDither(data, w);     break;
+					case DITHER_MODE_DIFFUSION:                                  break;
+					case DITHER_MODE_FLOYDSTEIN:                                 break;
+					default:                    original_image(data);
+					console.log("Unknown Dither Mode: " + dither_mode);
+				}
+			break;
+			*/
+			case COLOR_MODE_2BIT_GRAYSCALE:
+				convert_to_grayscale(data, w, h);
+				// Fall through into color
+				
+			case COLOR_MODE_6BIT_COLOR:
+				switch (dither_mode) {
+					case DITHER_MODE_ORIGINAL:   original_image(data);           break;
+					case DITHER_MODE_NONE:       robClosest64(data);             break;
+					case DITHER_MODE_ORDERED:    robOrderedDither64(data, w, h); break;
+					case DITHER_MODE_ATKINSON:   robAtkinsonDither(data, w);     break;
+					case DITHER_MODE_DIFFUSION:  floydSteinberg_rob(data, w, h);break;
+					case DITHER_MODE_FLOYDSTEIN: floydSteinberg_greg(data, w, h);  break;
+					default:                    original_image(data);
+					console.log("Unknown Dither Mode: " + dither_mode);
+				}
+			break;
+			case COLOR_MODE_1BIT_COLOR:     break;
+			case COLOR_MODE_2BIT_COLOR:     break;
+			case COLOR_MODE_4BIT_COLOR:     break;
+			default:
+				// Unknown Color Mode
+				console.log("Unknown Color Mode " + color_mode);
+		}
+		
+		ctx.putImageData(imageData, 0, 0);
+	}
+		
+	
+// =======================================================================================================	
+//  Paste Image Functions
+// =======================================================================================================
+//http://joelb.me/blog/2011/code-snippet-accessing-clipboard-images-with-javascript/
+// We start by checking if the browser supports the 
+// Clipboard object. If not, we need to create a 
+// contenteditable element that catches all pasted data 
+if (!window.Clipboard) {
+   var pasteCatcher = document.createElement("div");
+	
+   // Firefox allows images to be pasted into contenteditable elements
+   pasteCatcher.setAttribute("contenteditable", "");
+	
+   // We can hide the element and append it to the body,
+   pasteCatcher.style.opacity = 0;
+   document.body.appendChild(pasteCatcher);
+ 
+   // as long as we make sure it is always in focus
+   pasteCatcher.focus();
+   document.addEventListener("click", function() { pasteCatcher.focus(); });
+} 
+// Add the paste event listener
+window.addEventListener("paste", pasteHandler);
+ 
+/* Handle paste events */
+function pasteHandler(e) {
+   // We need to check if event.clipboardData is supported (Chrome)
+   if (e.clipboardData) {
+	  // Get the items from the clipboard
+	  var items = e.clipboardData.items;
+	  if (items) {
+		 // Loop through all items, looking for any kind of image
+		 for (var i = 0; i < items.length; i++) {
+			if (items[i].type.indexOf("image") !== -1) {
+			   // We need to represent the image as a file,
+			   var blob = items[i].getAsFile();
+			   // and use a URL or webkitURL (whichever is available to the browser)
+			   // to create a temporary URL to the object
+			   var URLObj = window.URL || window.webkitURL;
+			   var source = URLObj.createObjectURL(blob);
+				
+			   // The URL can then be used as the source of an image
+			   createImage(source);
+			}
+		 }
+	  }
+   // If we can't handle clipboard data directly (Firefox), 
+   // we need to read what was pasted from the contenteditable element
+   } else {
+	  // This is a cheap trick to make sure we read the data
+	  // AFTER it has been inserted.
+	  setTimeout(checkInput, 1);
+   }
+}
+ 
+/* Parse the input in the paste catcher element */
+function checkInput() {
+   // Store the pasted content in a variable
+   var child = pasteCatcher.childNodes[0];
+ 
+   // Clear the inner html to make sure we're always getting the latest inserted content
+   pasteCatcher.innerHTML = "";
+	
+   if (child) {
+	  // If the user pastes an image, the src attribute
+	  // will represent the image as a base64 encoded string.
+	  if (child.tagName === "IMG") {
+		 createImage(child.src);
+	  }
+   }
+}
+
+/* Creates a new image from a given source */
+function createImage(source) {
+   document.getElementById("theurl").value = "pasted image";
+   source_image_obj.src = source;
+}
+// =======================================================================================================	
+
+
+
+function dither_imageCanvas_onto_fixedCanvasX() {
+	console.log("Start Brightness and Dithering");
+	var out_image;
+	var imageWidth  = source_image_obj.width;
+	var imageHeight = source_image_obj.height;
+	imageCanvas.width  = imageWidth;
+	imageCanvas.height = imageHeight;
+	imageCanvasCTX.clearRect(0, 0, imageWidth, imageHeight);
+	imageCanvasCTX.drawImage(source_image_obj, 0, 0, imageWidth, imageHeight);
+	
+	
+	console.log("Start Brightness/Contrast");
+	//var in_image = brightness_contrast(imageCanvasCTX, brightness, contrast);
+	brightness_contrast(imageCanvasCTX, brightness, contrast);
+	
+	
+	//out_image = imageCanvasCTX.createImageData(in_image);
+	
+
+	
+	//var in_image = imageCanvasCTX.getImageData(0, 0, imageWidth, imageHeight);
+	
+	console.log("Get Image");
+	var main_in_image = imageCanvasCTX.getImageData(0, 0, imageWidth, imageHeight);
+	console.log("Start Dithering");
+			
+//out_image = DitherJS.atkinsonDither(main_in_image, imageCanvasCTX, bwpalette, step, imageHeight, imageWidth);
+console.log("k");
+
+	console.log("Putting Image");
+	imageCanvasCTX.putImageData(out_image, 0, 0);
+	console.log("Dithering Complete");
+}
+	
+// =======================================================================================================	
+//  UI Functions
+// =======================================================================================================
+function update_color(mode) {
+	color_mode = parseInt(mode);
+	update_canvas();
+}
+function update_dither_mode(mode) {
+	console.log("Update Dither Mode: " + mode);
+	dither_mode = parseInt(mode);
+	update_canvas();
+}
+
+function update_watch_type(type) {
+	watch_type = type;
+	switch (watch_type) {
+		case WATCH_TYPE_ORIGINAL: set_image_dimensions(source_image_obj.width, source_image_obj.height, "0px", "", 0, 0); break;
+		case WATCH_TYPE_APLITE:   set_image_dimensions(144, 168, "0px",  BODY_APLITE, 236, 103); break;
+		case WATCH_TYPE_BASALT:   set_image_dimensions(144, 168, "6px",  BODY_BASALT, 244,  92); break;
+		case WATCH_TYPE_CHALK:    set_image_dimensions(180, 180, "90px", BODY_CHALK,  251,  86); break;
+		case WATCH_TYPE_DIORITE:  set_image_dimensions(144, 168, "0px",  BODY_APLITE, 236, 103); break;
+		case WATCH_TYPE_EMERY:    set_image_dimensions(200, 228, "0px",  BODY_EMERY,  200,  91); break;
+		default:
+		console.log("watch type default");
+	}
+	update_canvas();
+}
+
+function set_image_dimensions(w, h, br, bodyURL, bodyWidth, bodyPaddingTop, bodyPaddingSide) {
+	mainCanvas.height = h;
+	mainCanvas.width  = w;
+	mainCanvas.style.borderRadius = br;
+	watchBody.src = bodyURL;
+	canvasDiv.style.padding = bodyPaddingTop + "px 0px";
+}
+
+function set_brightness(value) {
+	brightness = parseInt(value);
+	document.getElementById("brightness").innerHTML=parseInt(value);
+	update_canvas();
+}
+
+function set_contrast(value) {
+	contrast = parseInt(value);
+	document.getElementById("contrast").innerHTML=parseInt(value);
+	update_canvas();
+}
+
+function reset_settings() {
+	image_x = source_image_obj.width  / 2;
+	image_y = source_image_obj.height / 2;
+	zoom = 1;
+	update_watch_type(watch_type);
+	//update_canvas();  // Draw the image in its new position
+}
+
+// This allows you to press <ENTER> after typing URL (or pressing "Submit")
+document.getElementById("update_button").addEventListener("click", function(e){
+	e.preventDefault();
+	load_url();
+});
+
+
+
+
+
+// =======================================================================================================	
+//  Mouse / Touch Functions
+// =======================================================================================================
+document.addEventListener('wheel', function(e) {
+	if(e.ctrlKey || e.shiftKey || e.altKey) return;
+	
+	e.preventDefault();   // Stop the window from moving
+	if(e.deltaY<0){
+		zoom = zoom * 1.5;
+	} else {
+		zoom = zoom / 1.5;
+	}
+	update_canvas();
+}, false);
+
+document.addEventListener('mousemove', function(e) {
+	if(e.buttons==0)
+		mouse_mode = 0;
+	if(mouse_mode === 0) {
+		e.preventDefault();
+		if(e.buttons == 1) {  // only left button
+			image_x = image_x + zoom * (mouse_x - e.clientX);
+			image_y = image_y + zoom * (mouse_y - e.clientY);
+			update_canvas();							// draw the image in its new position
+		}
+	}
+	mouse_x = e.clientX; mouse_y = e.clientY;	// Save for next time
+}, false);
+
+toparea.addEventListener('mousedown', function(e) {
+	mouse_mode = 1;
+}, false);
+
+document.addEventListener('mouseup', function(e) {
+	mouse_mode = 0;
+}, false);
+
+		
+		
+function get_distance(e) {
+	var diffX = e.touches[0].clientX - e.touches[1].clientX;
+	var diffY = e.touches[0].clientY - e.touches[1].clientY;
+	return Math.sqrt(diffX * diffX + diffY * diffY);	// Pythagorean theorem
+}
+
+toparea.addEventListener('touchstart', function(e) {
+	mouse_mode = 1;
+}, false);
+
+
+document.addEventListener('touchend', function(e) {
+	e.preventDefault();
+	mouse_mode = 0;
+	mouse_x = e.touches[0].clientX; mouse_y = e.touches[0].clientY;	// could be down to 1 finger, back to moving image
+}, false);
+
+
+lowerarea.addEventListener('touchstart', function(e) {
+	mouse_mode = 0;
+	if(mouse_mode === 0) {
+		e.preventDefault();
+		if(e.touches.length > 1) {			// if multiple touches (pinch zooming)
+			finger_dist = get_distance(e);		// Save current finger distance
+		}									// Else just moving around
+	}
+	mouse_x = e.touches[0].clientX;		// Save finger position
+	mouse_y = e.touches[0].clientY;		//
+}, false);
+
+
+document.addEventListener('touchmove', function(e) {
+	if(mouse_mode === 0) {
+		e.preventDefault();												// Stop the window from moving
+		if(e.touches.length > 1) {										// If pinch-zooming
+			var new_finger_dist = get_distance(e);							// Get current distance between fingers
+			zoom = zoom * Math.abs(finger_dist / new_finger_dist);			// Zoom is proportional to change
+			finger_dist = new_finger_dist;									// Save current distance for next time
+		} else {														// Else just moving around
+			image_x = image_x + (zoom * (mouse_x - e.touches[0].clientX));	// Move the image
+			image_y = image_y + (zoom * (mouse_y - e.touches[0].clientY));	//
+			mouse_x = e.touches[0].clientX;									// Save finger position for next time
+			mouse_y = e.touches[0].clientY;									//
+		}
+		update_canvas();												// draw the new position
+	}
+}, false);
+
+
+
+
+
+
+	
+// =======================================================================================================	
+//  Image Functions
+// =======================================================================================================
+
+function brightness_contrast(image_data, brightness, contrast) {
+	var bAdjust, cAdjust;
+	bAdjust = Math.floor(255 * (brightness / 255));
+	//cAdjust = (contrast + 255) / 255;
+	//cAdjust = cAdjust * cAdjust;
+	cAdjust = Math.pow((contrast + 255) / 255, 2)
+
+	for (var i = 0; i < image_data.length; i += 4) {
+			// Brightness
+			image_data[i  ] += brightness;
+			image_data[i+1] += brightness;
+			image_data[i+2] += brightness;
+			
+			// Contrast
+			image_data[i  ] = (image_data[i  ]-128)*cAdjust + 128;
+			image_data[i+1] = (image_data[i+1]-128)*cAdjust + 128;
+			image_data[i+2] = (image_data[i+2]-128)*cAdjust + 128;
+	}
+}
+
+function original_image(d) {
+	console.log("orig image");
+}
+
+function convert_to_grayscale(data, w, h) {
+	var d, x, y, i, intensity;
+	i = 0;
+	for (y=0; y<h; ++y) {
+		for (x=0; x<w; ++x, i+=4) {
+			r = data[i  ];
+			g = data[i+1];
+			b = data[i+2];
+			intensity = (r+r+r+b+g+g+g+g) >> 3;           // intensity = Average RGB into a single 0-255 "brightness" value
+			data[i  ] = data[i+1] = data[i+2] = intensity;
+		}
+	}
+}
+
+function robClosest64(d) {
+	for (var i = 0; i < d.length; i += 4) {
+		d[i]     = (d[i  ]>>>6)*85;
+		d[i + 1] = (d[i+1]>>>6)*85;
+		d[i + 2] = (d[i+2]>>>6)*85;
+	}
+}
+/*
+function robClosestBW_orig(d) {
+	for (var i = 0; i < d.length; i += 4) {
+		var r = d[i], g = d[i+1], b = d[i+2];
+		var y = ((r+r+r+b+g+g+g+g)>>>10)*255;
+		d[i  ] = d[i+1] = d[i+2] = y;
+	}
+}
+*/
+function robClosestGS(d) {
+	for (var r, g, b, y, i = 0; i < d.length; i += 4) {
+		r = d[i], g = d[i+1], b = d[i+2];
+		d[i] = d[i+1] = d[i+2] = Math.floor((r+r+r+b+g+g+g+g)>>>9) * 85;
+	}
+}
+
+function robClosestBW(d) {
+	for (var r, g, b, i = 0; i < d.length; i += 4) {
+		r = d[i], g = d[i+1], b = d[i+2];
+		d[i+1] = d[i+2] = d[i] = Math.floor((r+r+r+b+g+g+g+g)>>>10) * 255;;
+	}
+}
+
+function robAtkinsonDither(d, w) {
+	var approx_r, approx_g, approx_b, r, g, b, ww, n, bpp=4;
+	ww = bpp*w;
+	console.log("begin");
+	for (var i = 0; i < d.length; i += bpp) {
+		approx_r = (d[i  ]>>>6)*85;
+		approx_g = (d[i+1]>>>6)*85;
+		approx_b = (d[i+2]>>>6)*85;
+		
+		r = (d[i  ] - approx_r) >> 3;
+		g = (d[i+1] - approx_g) >> 3;
+		b = (d[i+2] - approx_b) >> 3;
+
+		// Diffuse the error for three colors
+		n = i + bpp;
+		d[n   ] += r;
+		d[n+ 1] += g;
+		d[n+ 2] += b;
+n=n+bpp;
+		d[n+ 0] += r;
+		d[n+ 1] += g;
+		d[n+ 2] += b;
+		
+		n = n + ww - bpp - bpp;
+		
+		d[n   ] += r;
+		d[n+ 1] += g;
+		d[n+ 2] += b;
+n=n+bpp;
+		d[n+ 0] += r;
+		d[n+ 1] += g;
+		d[n+ 2] += b;
+n=n+bpp;
+		d[n+ 0] += r;
+		d[n+ 1] += g;
+		d[n+ 2] += b;
+		
+		n = n + ww;
+		
+		d[n   ] += r;
+		d[n+ 1] += g;
+		d[n+ 2] += b;
+
+		// Draw pixel
+		d[i  ] = approx_r;
+		d[i+1] = approx_g;
+		d[i+2] = approx_b;
+	}
+	console.log("end");
+}
+
+function robAtkinsonDitherBW(d, w) {
+	var r, g, b, fw, y, n;
+	fw = 4*w;
+	for (var i = 0; i < d.length; i += 4) {
+		r = d[i  ];
+		g = d[i+1];
+		b = d[i+2];
+		y = ((r+r+r+b+g+g+g+g)>>>10)*255;
+
+		r = (r - y) >> 3;
+		g = (g - y) >> 3;
+		b = (b - y) >> 3;
+
+		// Diffuse the error for three colors
+		n = i + 4;
+		d[i+4] += r;
+		d[i+5] += g;
+		d[i+6] += b;
+
+		d[i+8] += r;
+		d[i+9] += g;
+		d[i+10] += b;
+		
+		n = n + fw - 4;
+		
+		d[i+fw] += r;
+		d[i+fw+1] += g;
+		d[i+fw+ 2] += b;
+
+		d[i+fw+ 4] += r;
+		d[i+fw+ 5] += g;
+		d[i+fw+ 6] += b;
+
+		d[i+fw+ 8] += r;
+		d[i+fw+ 9] += g;
+		d[i+fw+10] += b;
+		
+		n = n + fw + 8;
+		
+		d[i+fw+fw+8   ] += r;
+		d[i+fw+fw+9] += g;
+		d[i+fw+fw+10] += b;
+
+		// Draw pixel
+		d[i  ] = d[i+1] = d[i+2] = y;
+	}
+}
+
+
+	
+var dither_table = new Uint8Array([   0, 128,  32, 160,   8, 136,  40, 168, // 8x8 Bayer ordered dithering
+									192,  64, 224,  96, 200,  72, 232, 104, // pattern. Each input pixel
+									 48, 176,  16, 144,  56, 184,  24, 152, // is scaled to the 0..63 range
+									240, 112, 208,  80, 248, 120, 216,  88, // before looking in this table
+									 12, 140,  44, 172,   4, 132,  36, 164, // to determine the action.
+									204,  76, 236, 108, 196,  68, 228, 100,
+									 60, 188,  28, 156,  52, 180,  20, 148,   // 0..63 * 4 = 0..252
+									252, 124, 220,  92, 244, 116, 212,  84]); // *4 instead of /4 during runtime
+
+
+function robOrderedDither64(data, w, h) {
+	var d, x, y, i;
+	i = 0;
+	for (y=0; y<h; ++y) {
+		for (x=0; x<w; ++x, i+=4) {
+			d = dither_table[((y%8) * 8) + (x%8)];                             // Speed things up slightly
+			data[i  ] = Math.floor(((256*(data[i  ] % 85)/85) > d) ? (data[i  ]/85)+1 : (data[i  ]/85)) * 85;  //   Red part
+			data[i+1] = Math.floor(((256*(data[i+1] % 85)/85) > d) ? (data[i+1]/85)+1 : (data[i+1]/85)) * 85;  //   Green part
+			data[i+2] = Math.floor(((256*(data[i+2] % 85)/85) > d) ? (data[i+2]/85)+1 : (data[i+2]/85)) * 85;  //   Blue part
+		}
+	}
+}
+
+function robOrderedDitherBW(data, w, h) {
+	var d, x, y, i, y, r, g, b, intensity;
+	i = 0;
+	for (y=0; y<h; ++y) {
+		for (x=0; x<w; ++x, i+=4) {
+			d = dither_table[((y%8) * 8) + (x%8)];                             // Speed things up slightly
+			r = data[i  ];
+			g = data[i+1];
+			b = data[i+2];
+			intensity = ((r+r+r+b+g+g+g+g) >> 3);           // intensity = Average RGB into a single 0-255 "brightness" value
+			data[i  ] = data[i+1] = data[i+2] = ((intensity > d) ? 255 : 0);
+		}
+	}
+}
+
+function robOrderedDitherGS(data, w, h) {
+	var d, x, y, i, intensity;
+	i = 0;
+	for (y=0; y<h; ++y) {
+		for (x=0; x<w; ++x, i+=4) {
+			d = dither_table[((y%8) * 8) + (x%8)];                             // Speed things up slightly
+			r = data[i  ];
+			g = data[i+1];
+			b = data[i+2];
+			intensity = (r+r+r+b+g+g+g+g) >> 3;           // intensity = Average RGB into a single 0-255 "brightness" value
+			data[i  ] = data[i+1] = data[i+2] = Math.floor(((256*(intensity % 85)/85) > d) ? (intensity/85)+1 : (intensity/85)) * 85;
+		}
+	}
+}
+
+function floydSteinberg_rob(d, w, h) {
+	var x, y, i, err, w4 = 4*w;
+	for(y=0, i=0; y<h; ++y) {
+		for(x=0; x<w4; ++x, ++i) {
+			if ((x&3) != 3) {                             // if not alpha channel
+				err = d[i] - (d[i] = ((d[i]>>>6)*85));    // error amount
+				if(x+4<w4) d[i+4] += (err*7)>>4;          // right cell (if exists)
+				if(y+1<h) {                               // if not bottom row
+					if(x  >3)   d[i+w4-4] += (err*3)>>4;  // bottom left   cell
+								d[i+w4  ] += (err*5)>>4;  // bottom middle cell
+					if(x+4<w4)  d[i+w4+4] += (err*1)>>4;  // bottom right  cell
+				}
+			}
+		}
+	}
+}
+
+</script>
+</body>
+</html>
