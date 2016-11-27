@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<!-- http://meyerweb.com/eric/thoughts/2007/05/01/reset-reloaded/ -->
+
+<html style="height:100%;">
+	<head>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+			}
+
+			table {
+				border-collapse: collapse;
+			}
+	
+			input[type=range] {
+				-webkit-appearance: none;
+				background-color: silver;
+				width: 75%;
+				height:50px;
+			}
+
+			input[type="range"]::-webkit-slider-thumb {
+				 -webkit-appearance: none;
+				background-color: #666;
+				opacity: 0.5;
+				width: 20px;
+				height: 50px;
+			}
+		</style>
+	</head>
+	<body onload="load_url();" style="height:100%;">
+		<center>
+			<div id="content" style="height:100%; width:100%; background:blue;">
+				<div id="toparea" style="width:100%; background:red;">
+					<form>
+						URL:<input type="text" id="theurl" value="https://i.imgur.com/N377J99.png"><br><!-- http://files.enjin.com.s3.amazonaws.com/272093/modules/forum/attachments/10th+Doctor+BROWN_1397583069.jpg"><br> -->
+						<input type="submit" id="update_button" value="Load URL and Reset"><br>
+						<input type="checkbox" id="embiggen" onclick="double_size();"/>Zoom
+						<br>
+						Dithering:
+						<input type="radio" name="dithering" id="dither_none" onclick="update_dither_mode(0);">None
+						<input type="radio" name="dithering" id="dither_ordered" onclick="update_dither_mode(1);">Ordered
+						<input type="radio" name="dithering" id="dither_atkinson" onclick="update_dither_mode(2);" checked>Atkinson
+						<input type="radio" name="dithering" id="dither_diffusion" onclick="update_dither_mode(3);">Diffusion
+						<br>
+						Colors:
+						<input type="radio" name="color_mode" id="color_bw" onclick="update_color(0);" checked>B&W
+						<input type="radio" name="color_mode" id="color_64" onclick="update_color(1);">64-Color
+						<input type="radio" name="color_mode" id="greyscale" onclick="update_color(2);">Greyscale
+						<br>
+						Brightness: <input type="range" min="-100" max="100" value="0" step="1" oninput="set_brightness(this.value)" /><span id="brightness">0</span><br>
+						Contrast:   <input type="range" min="-100" max="100" value="0" step="1" oninput="set_contrast(this.value)" /><span id="contrast">0</span><br>
+					</form>
+				</div>
+				<div id="lowerarea" style="background:blue; width:'100%'">
+					<canvas id="mainCanvas" width="144" height="168" style="border:1px solid #d3d3d3;">Your browser does not support the HTML5 canvas tag.</canvas>
+				</div>
+			</div>
+		</center>
+		<script>
+			var step = 1;
+			
+			bwpalette = [
+				[0, 0, 0],
+				[255, 255, 255]
+			];
+			var greyscale = [
+				[0, 0, 0],
+				[255, 255, 255],
+				[85, 85, 85],
+				[170, 170, 170]			
+			];
+			var colorpalette = [
+				[0, 0, 0],
+				[255, 255, 255],
+				[85, 85, 85],
+				[170, 170, 170],
+				[170, 85, 0],
+				[170, 85, 85],
+				[170, 0, 0],
+				[255, 0, 170],
+				[255, 85, 170],
+				[255, 170, 255],
+				[255, 255, 0],
+				[255, 170, 0],
+				[255, 255, 85],
+				[255, 170, 85],
+				[255, 85, 0],
+				[255, 0, 0],
+				[255, 170, 170],
+				[255, 85, 85],
+				[255, 0, 85],
+				[170, 170, 0],
+				[85, 0, 0],
+				[170, 0, 85],
+				[255, 0, 255],
+				[255, 85, 255],
+				[170, 255, 85],
+				[170, 255, 0],
+				[170, 170, 85],
+				[85, 85, 0],
+				[85, 0, 85],
+				[170, 0, 170],
+				[170, 85, 170],
+				[85, 255, 0],
+				[85, 170, 0],
+				[0, 85, 0],
+				[0, 85, 85],
+				[0, 0, 85],
+				[85, 0, 170],
+				[170, 0, 255],
+				[170, 85, 255],
+				[0, 255, 0],
+				[0, 170, 0],
+				[85, 170, 85],
+				[85, 170, 170],
+				[0, 85, 170],
+				[0, 0, 170],
+				[85, 0, 255],
+				[85, 85, 170],
+				[170, 255, 170],
+				[85, 255, 85],
+				[0, 255, 85],
+				[0, 170, 85],
+				[0, 170, 170],
+				[0, 170, 255],
+				[0, 0, 255],
+				[85, 85, 255],
+				[170, 170, 255],
+				[85, 255, 170],
+				[0, 255, 170],
+				[0, 255, 255],
+				[85, 170, 255],
+				[0, 85, 255],
+				[85, 255, 255],
+				[170, 255, 255],
+				[255, 255, 170]
+			];
+			var dithertimer;
+			var brightness=0;
+			var contrast=0;
+			
+				var mainCanvas= document.getElementById("mainCanvas");
+				var mainCanvasCTX = document.getElementById("mainCanvas").getContext("2d");
+				mainCanvasCTX.imageSmoothingEnabled = false;
+				var canvas_w = mainCanvas.width, canvas_h = mainCanvas.height;
+				
+				
+				
+				var lowerarea = document.getElementById("lowerarea");
+				
+			var image_x = 0, image_y = 0;
+			var zoom = 1;	
+			var mouse_x = 0, mouse_y = 0, finger_dist = 0;
+			var dither_mode = 2;//document.getElementsByName("dithering");
+			var  color_mode = 0;//document.getElementsByName("color_mode");
+			
+			var source_image_obj = new Image();
+			source_image_obj.addEventListener('load', function() {image_loaded();}, false); // Reset (x,y,zoom) when new image loads
+			
+			function image_loaded() {
+				console.log("Image Loaded from URL");
+				reset_settings();
+				draw_original_image_to_mainCanvas();
+				//dither_imageCanvas_onto_fixedCanvas();
+				//update_canvas();
+			}
+			
+			function load_url() {
+				// When image is finished loading from the source, image_loaded() is called (due to the "load" event listener above)
+				console.log("loadurl");
+				source_image_obj.crossOrigin = "Anonymous";
+				source_image_obj.src = document.getElementById("theurl").value;
+			}
+			
+			function update_canvas() {
+				console.log("update canvas");
+				draw_original_image_to_mainCanvas();
+				adjust_mainCanvas();
+				
+				//clearTimeout(dithertimer); dithertimer = setTimeout(update_dither, 100);
+				//update_dither();
+			}
+			
+			function draw_original_image_to_mainCanvas() {
+				// Keep picture in bounds
+				if(image_x - (canvas_w * zoom / 2) > source_image_obj.width ) image_x = source_image_obj.width  + (canvas_w * zoom / 2);
+				if(image_y - (canvas_h * zoom / 2) > source_image_obj.height) image_y = source_image_obj.height + (canvas_h * zoom / 2);
+				if(image_x + (canvas_w * zoom / 2) < 0)                       image_x =                       0 - (canvas_w * zoom / 2);
+				if(image_y + (canvas_h * zoom / 2) < 0)                       image_y =                       0 - (canvas_h * zoom / 2);
+				// Draw the scaled image onto the canvas
+				mainCanvasCTX.clearRect(0, 0, canvas_w, canvas_h);
+				mainCanvasCTX.drawImage(source_image_obj, image_x - (canvas_w * zoom / 2), image_y - (canvas_h * zoom / 2), canvas_w * zoom, canvas_h * zoom, 0, 0, canvas_w, canvas_h);
+			}
+			
+			function adjust_mainCanvas() {
+				var imageData = mainCanvasCTX.getImageData(0, 0, canvas_w, canvas_h);
+				var d = new Uint8ClampedArray(imageData.data); // d is now pointer, doesn't copy data
+				
+				brightness_contrast(d, brightness, contrast);
+				//robDither(d, bwpalette);
+				//robClosestColor(d);
+				robClosestBW(d);
+				
+				imageData.data.set(d);
+				mainCanvasCTX.putImageData(imageData, 0, 0);
+			}
+			
+			function dither_imageCanvas_onto_fixedCanvasX() {
+				console.log("Start Brightness and Dithering");
+				var out_image;
+				var imageWidth  = source_image_obj.width;
+				var imageHeight = source_image_obj.height;
+				imageCanvas.width  = imageWidth;
+				imageCanvas.height = imageHeight;
+				imageCanvasCTX.clearRect(0, 0, imageWidth, imageHeight);
+				imageCanvasCTX.drawImage(source_image_obj, 0, 0, imageWidth, imageHeight);
+				
+				
+				console.log("Start Brightness/Contrast");
+				//var in_image = brightness_contrast(imageCanvasCTX, brightness, contrast);
+				brightness_contrast(imageCanvasCTX, brightness, contrast);
+				
+				
+				//out_image = imageCanvasCTX.createImageData(in_image);
+				
+
+				
+				//var in_image = imageCanvasCTX.getImageData(0, 0, imageWidth, imageHeight);
+				
+				console.log("Get Image");
+				var main_in_image = imageCanvasCTX.getImageData(0, 0, imageWidth, imageHeight);
+				console.log("Start Dithering");
+out_image = DitherJS.atkinsonDither(main_in_image, imageCanvasCTX, bwpalette, step, imageHeight, imageWidth);
+console.log("k");
+/*
+				if(color_mode==0) {	// do b&w
+					if(dither_mode==1) {	//ordered
+						out_image = DitherJS.orderedDither(in_image, imageCanvasCTX, bwpalette, step, imageHeight, imageWidth);
+					} else if(dither_mode==2) {	//atkinson
+						out_image = DitherJS.atkinsonDither(in_image, imageCanvasCTX, bwpalette, step, imageHeight, imageWidth);
+					} else if(dither_mode==3) {	//diffusion
+						out_image = DitherJS.errorDiffusionDither(in_image, imageCanvasCTX, bwpalette, step, imageHeight, imageWidth);
+					} else {					// no dither
+						out_image = DitherJS.closestColor(in_image, imageCanvasCTX, bwpalette, step, imageHeight, imageWidth);
+					}
+				} else if(color_mode==1) {	// do 64color
+					if(dither_mode==1) {	//ordered
+						out_image = DitherJS.orderedDither(in_image, imageCanvasCTX, colorpalette, step, imageHeight, imageWidth);
+					} else if(dither_mode==2) {	//atkinson
+						out_image = DitherJS.atkinsonDither(in_image, imageCanvasCTX, colorpalette, step, imageHeight, imageWidth);
+					} else if(dither_mode==3) {	//diffusion
+						out_image = DitherJS.errorDiffusionDither(in_image, imageCanvasCTX, colorpalette, step, imageHeight, imageWidth);
+					} else {					// no dither
+						out_image = DitherJS.closestColor(in_image, imageCanvasCTX, colorpalette, step, imageHeight, imageWidth);
+					}
+				} else if(color_mode==2) {	// do greyscale
+					if(dither_mode==1) {	//ordered
+						out_image = DitherJS.orderedDither(in_image, imageCanvasCTX, greyscale, step, imageHeight, imageWidth);
+					} else if(dither_mode==2) {	//atkinson
+						out_image = DitherJS.atkinsonDither(in_image, imageCanvasCTX, greyscale, step, imageHeight, imageWidth);
+					} else if(dither_mode==3) {	//diffusion
+						out_image = DitherJS.errorDiffusionDither(in_image, imageCanvasCTX, greyscale, step, imageHeight, imageWidth);
+					} else {					// no dither
+						out_image = DitherJS.closestColor(in_image, imageCanvasCTX, greyscale, step, imageHeight, imageWidth);
+					}
+				} else {
+					out_image = imageCanvasCTX.createImageData(in_image);
+				}
+				*/
+				console.log("Putting Image");
+				imageCanvasCTX.putImageData(out_image, 0, 0);
+				console.log("Dithering Complete");
+			}
+			
+			function update_color(mode) {
+				color_mode = parseInt(mode);
+				dither_imageCanvas_onto_fixedCanvas();
+				update_canvas();
+			}
+			function update_dither_mode(mode) {
+				dither_mode = parseInt(mode);
+				dither_imageCanvas_onto_fixedCanvas();
+				update_canvas();
+			}
+			
+			function update_dither() {
+				var mainCanvas= document.getElementById("mainCanvas");
+				var mainCanvasCTX = document.getElementById("mainCanvas").getContext("2d");
+
+				var bcCanvas= document.getElementById("bcCanvas");
+				var bcCanvasCTX = document.getElementById("bcCanvas").getContext("2d");
+
+				var c64Canvas= document.getElementById("c64Canvas");
+				var c64CanvasCTX = document.getElementById("c64Canvas").getContext("2d");
+
+				var bwCanvas= document.getElementById("bwCanvas");
+				var bwCanvasCTX = document.getElementById("bwCanvas").getContext("2d");
+
+                    var w = mainCanvas.width,
+                        h = mainCanvas.height;
+
+                    var main_in_image = mainCanvasCTX.getImageData(0, 0, w, h);
+
+					var out_image_bc = brightness_contrast(mainCanvasCTX, brightness, contrast);
+                    bcCanvasCTX.putImageData(out_image_bc, 0, 0);
+									
+                    //var out_image_64 = DitherJS.atkinsonDither(out_image_bc, bcCanvasCTX, colorpalette, step, h, w);
+                    //c64CanvasCTX.putImageData(out_image_64, 0, 0);
+					
+                    var out_image_bw = DitherJS.atkinsonDither(out_image_bc, bcCanvasCTX, bwpalette, step, h, w);
+                    bwCanvasCTX.putImageData(out_image_bw, 0, 0);
+					
+			}
+
+			function set_brightness(value) {
+				brightness = parseInt(value);
+				document.getElementById("brightness").innerHTML=parseInt(value);
+				//dither_imageCanvas_onto_fixedCanvas();
+				update_canvas();
+			}
+			
+			function set_contrast(value) {
+				contrast = parseInt(value);
+				document.getElementById("contrast").innerHTML=parseInt(value);
+				//dither_imageCanvas_onto_fixedCanvas();
+				update_canvas();
+			}
+			
+			function reset_settings() {
+				image_x = source_image_obj.width  / 2;
+				image_y = source_image_obj.height / 2;
+				zoom = 1;
+				
+				//update_canvas();  // Draw the image in its new position
+			}
+
+			document.getElementById("update_button").addEventListener("click", function(e){
+				e.preventDefault();
+				load_url();
+			});
+
+
+			document.addEventListener('wheel', function(e) {
+				e.preventDefault();												// Stop the window from moving
+				if(e.deltaY<0){
+					zoom = zoom * 1.5;
+				} else {
+					zoom = zoom / 1.5;
+				}
+				dither_imageCanvas_onto_fixedCanvas();
+				update_canvas();
+			}, false);
+
+			document.addEventListener('mousemove', function(e) {
+				e.preventDefault();
+				if(e.buttons>0) {
+					window.getSelection().empty();
+					image_x = image_x + zoom * (mouse_x - e.clientX);
+					image_y = image_y + zoom * (mouse_y - e.clientY);
+					update_canvas();							// draw the image in its new position
+				}
+				mouse_x = e.clientX; mouse_y = e.clientY;	// Save for next time
+			}, false);
+
+			function get_distance(e) {
+				var diffX = e.touches[0].clientX - e.touches[1].clientX;
+				var diffY = e.touches[0].clientY - e.touches[1].clientY;
+				return Math.sqrt(diffX * diffX + diffY * diffY);	// Pythagorean theorem
+			}
+
+			document.addEventListener('mousedown', function(e) {
+				mode=0;
+			}, false);
+
+			document.addEventListener('touchstart', function(e) {
+				//e.preventDefault();
+				if(e.touches.length > 1) {			// if multiple touches (pinch zooming)
+					finger_dist = get_distance(e);		// Save current finger distance
+				}									// Else just moving around
+				mouse_x = e.touches[0].clientX;		// Save finger position
+				mouse_y = e.touches[0].clientY;		//
+			}, false);
+
+			document.addEventListener('touchmove', function(e) {
+				e.preventDefault();												// Stop the window from moving
+				if(e.touches.length > 1) {										// If pinch-zooming
+					var new_finger_dist = get_distance(e);							// Get current distance between fingers
+					zoom = zoom * Math.abs(finger_dist / new_finger_dist);			// Zoom is proportional to change
+					finger_dist = new_finger_dist;									// Save current distance for next time
+				} else {														// Else just moving around
+					image_x = image_x + (zoom * (mouse_x - e.touches[0].clientX));	// Move the image
+					image_y = image_y + (zoom * (mouse_y - e.touches[0].clientY));	//
+					mouse_x = e.touches[0].clientX;									// Save finger position for next time
+					mouse_y = e.touches[0].clientY;									//
+				}
+				update_canvas();												// draw the new position
+			}, false);
+
+			document.addEventListener('touchend', function(e) {
+				e.preventDefault();
+				mouse_x = e.touches[0].clientX; mouse_y = e.touches[0].clientY;	// could be down to 1 finger, back to moving image
+			}, false);
+			
+
+  /*
+	function brightness_contrast(ctx, brightness, contrast) {
+		var in_imgdata = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+		var out_imgdata = ctx.createImageData(in_imgdata);
+		var d = new Uint8ClampedArray(in_imgdata.data);
+
+		badjust = Math.floor(255 * (brightness / 100));
+		cadjust = Math.pow((contrast + 100) / 100, 2);
+
+        for (var y=0; y < out_imgdata.height; y+=1) {
+            for (var x=0; x < out_imgdata.width; x+=1) {
+                var i = (4*x) + (4*y*out_imgdata.width);
+
+                // Define bytes
+                var r = d[i];
+                var g = d[i+1];
+                var b = d[i+2];
+                //var a = d[i+3];
+
+				r += badjust;
+				g += badjust;
+				b += badjust;
+				
+				d[i+0] = (r-128)*cadjust + 128;
+				d[i+1] = (g-128)*cadjust + 128;
+				d[i+2] = (b-128)*cadjust + 128;
+            }
+        }
+        out_imgdata.data.set(d);
+        return out_imgdata;
+	}
+	*/
+	
+	function brightness_contrast(d, brightness, contrast) {
+		//var w = ctx.canvas.width;
+		//var h = ctx.canvas.height;
+		//var imageData = ctx.getImageData(0, 0, w, h);
+		//var d = new Uint8ClampedArray(imageData.data); // d is now pointer, doesn't copy data
+		var w = canvas_w;
+		var h = canvas_h;
+		
+		badjust = Math.floor(255 * (brightness / 100));
+		cadjust = (contrast + 100) / 100; cadjust = cadjust * cadjust;
+
+        for (var y=0; y < h; y+=1) {
+            for (var x=0; x < w; x+=1) {
+                var i = (4*x) + (4*y*w);
+
+                // Define bytes
+                var r = d[i];
+                var g = d[i+1];
+                var b = d[i+2];
+                //var a = d[i+3];
+
+				// Brightness
+				r += badjust;
+				g += badjust;
+				b += badjust;
+				// Contrast
+				d[i+0] = (r-128)*cadjust + 128;
+				d[i+1] = (g-128)*cadjust + 128;
+				d[i+2] = (b-128)*cadjust + 128;
+				
+            }
+        }
+        //imageData.data.set(d);
+        //ctx.putImageData(imageData, 0, 0);
+	}
+	
+	
+	
+	
+    function cDist(a,b) {
+        return Math.sqrt(
+            Math.pow( ((a[0]) - (b[0])),2 )
+            + Math.pow( ((a[1]) - (b[1])),2 )
+            + Math.pow( ((a[2]) - (b[2])),2 )
+        );
+    };
+
+    function approxCol(color, palette) {
+        var findIndex = function(fun,arg,list,min) {
+            if (list.length == 2) {
+                if (fun(arg,min) <= fun(arg,list[1])) {
+                    return min;
+                }else {
+                    return list[1];
+                }
+            } else {
+                //var hd = list[0];
+                var tl = list.slice(1);
+                if (fun(arg,min) <= fun(arg,list[1])) {
+                    min = min;
+                } else {
+                    min = list[1];
+                }
+                return findIndex(fun,arg,tl,min);
+            }
+        };
+        var found_color = findIndex(cDist, color, palette, palette[0]);
+        return found_color;
+    }
+	
+	
+	function robClosestColor(d) {
+        for (var i = 0; i < d.length; i += 4) {
+            d[i]     = (d[i]>>>6)*85;
+			d[i + 1] = (d[i+1]>>>6)*85;
+			d[i + 2] = (d[i+2]>>>6)*85;
+        }
+    };
+	
+	function robClosestBW(d) {
+        for (var i = 0; i < d.length; i += 4) {
+			var r = d[i], g = d[i+1], b = d[i+2];
+			var y = ((r+r+r+b+g+g+g+g)>>>10)*255;
+            d[i]   = y;
+			d[i+1] = y;
+			d[i+2] = y;
+        }
+    };
+
+	function robClosestColorOld(d, palette) {
+        for (var i = 0; i < d.length; i += 4) {
+            var approx = approxCol([d[i], d[i + 1], d[i + 2]], palette);
+            d[i]     = approx[0];
+			d[i + 1] = approx[1];
+			d[i + 2] = approx[2];
+        }
+    };
+	
+    function robDither(d, palette) {
+		var w = canvas_w;
+		var h = canvas_h;
+		var fw=4*w;
+		
+        for (var y=0; y<h*w; y+=w) {
+            for (var x=0; x<w; x += 1) {
+                var i = 4*(x + y);
+
+                // Define bytes
+                var r = i;
+                var g = i+1;
+                var b = i+2;
+                var a = i+3;
+
+                //var approx = [d[r],d[g],d[b]];//approxCol([d[r],d[g],d[b]], palette);
+				var approx = approxCol([d[r],d[g],d[b]], palette);
+
+                var q = [];
+                r = (d[r] - approx[0]) / 8;
+                g = (d[g] - approx[1]) / 8;
+                b = (d[b] - approx[2]) / 8;
+	
+				// Diffuse the error for three colors
+				var n = 4*(x+1+y);
+                d[n] += r;
+                d[n+1] += g;
+                d[n+2] += b;
+
+                d[n+4] += r;
+                d[n+5] += g;
+                d[n+6] += b;
+				n=n+fw-4;
+                d[n] += r;
+                d[n+1] += g;
+                d[n+2] += b;
+
+                d[n+4] += r;
+                d[n+5] += g;
+                d[n+6] += b;
+
+                d[n+8] += r;
+                d[n+9] += g;
+                d[n+10] += b;
+				n=n+fw+8;
+                d[n] += r;
+                d[n+1] += g;
+                d[n+2] += b;
+
+
+                        // Draw pixel
+                        d[i  ] = approx[0];
+                        d[i+1] = approx[1];
+                        d[i+2] = approx[2];
+
+				
+            }
+        }
+    };
+	
+	
+		</script>
+		
+		
+		
+		
+		<script>
+		/**
+* Javascript dithering library
+* @author 2014 Daniele Piccone
+* @author www.danielepiccone.com
+* */
+
+"use strict";
+
+/**
+* Process a series of img elements and make them canvas graphics
+*
+* @param selector - the selector of the elements to process
+* @param opt - the options object
+*/
+
+var DitherJS = (function (window) {
+
+    /**
+    * Return a distance of two colors ina three dimensional space
+    * @param array
+    * @param array
+    * @return number
+    * */
+    function colorDistance(a,b) {
+        //if (a == null) return b;
+        //if (b == null) return a;
+        return Math.sqrt(
+            Math.pow( ((a[0]) - (b[0])),2 )
+            + Math.pow( ((a[1]) - (b[1])),2 )
+            + Math.pow( ((a[2]) - (b[2])),2 )
+        );
+    };
+
+    /**
+    * Return the most closer color vs a common palette
+    * @param array - the color
+    * @return i - the index of the coloser color
+    * */
+    function approximateColor(color, palette) {
+        var findIndex = function(fun,arg,list,min) {
+            if (list.length == 2) {
+                if (fun(arg,min) <= fun(arg,list[1])) {
+                    return min;
+                }else {
+                    return list[1];
+                }
+            } else {
+                //var hd = list[0];
+                var tl = list.slice(1);
+                if (fun(arg,min) <= fun(arg,list[1])) {
+                    min = min;
+                } else {
+                    min = list[1];
+                }
+                return findIndex(fun,arg,tl,min);
+            }
+        };
+        var found_color = findIndex(colorDistance, color, palette, palette[0]);
+        return found_color;
+    }
+
+    /* *
+     * Dithering algorithms
+     *
+     * orderedDither
+     * atkinsonDither
+     * errorDiffusionDither
+     * */
+
+    function orderedDither(in_imgdata, ctx, palette, step, w, h) {
+        var out_imgdata = ctx.createImageData(in_imgdata);
+        var d = new Uint8ClampedArray(in_imgdata.data);
+        var ratio = 3;
+        var m = new Array(
+            [  1,  9,  3, 11 ],
+            [ 13,  5, 15,  7 ],
+            [  4, 12,  2, 10 ],
+            [ 16,  8, 14,  6 ]
+        );
+
+        for (var y=0;y<h;y += step) {
+            for (var x=0;x<w;x += step) {
+                var i = (4*x) + (4*y*w);
+
+                // Define bytes
+                var r = i;
+                var g = i+1;
+                var b = i+2;
+                var a = i+3;
+
+                d[r] += m[x%4][y%4] * ratio;
+                d[g] += m[x%4][y%4] * ratio;
+                d[b] += m[x%4][y%4] * ratio;
+
+                //var tr = threshold(d[r]);
+                //var tg = threshold(d[g]);
+                //var tb = threshold(d[b]);
+                var color = new Array(d[r],d[g],d[b]);
+                var approx = approximateColor(color, palette);
+                var tr = approx[0];
+                var tg = approx[1];
+                var tb = approx[2];
+
+                // d[r] = t;
+                // d[g] = t;
+                // d[b] = t;
+
+                // Draw a block
+                for (var dx=0;dx<step;dx++){
+                    for (var dy=0;dy<step;dy++){
+                        var di = i + (4 * dx) + (4 * w * dy);
+
+                        // Draw pixel
+                        d[di] = tr;
+                        d[di+1] = tg;
+                        d[di+2] = tb;
+
+                    }
+                }
+            }
+        }
+        out_imgdata.data.set(d);
+        return out_imgdata;
+    };
+
+	
+    function atkinsonDither(in_imgdata, ctx, palette, step, h, w) {
+
+        var out_imgdata = ctx.createImageData(in_imgdata);
+        var d = new Uint8ClampedArray(in_imgdata.data);
+
+		var fw=4*w;
+        for (var y=0; y<h*w; y+=w) {
+            for (var x=0; x<w; x += 1) {
+                var i = 4*(x + y);
+
+                // Define bytes
+                var r = i;
+                var g = i+1;
+                var b = i+2;
+                var a = i+3;
+
+                //var approx = [d[r],d[g],d[b]];//approximateColor([d[r],d[g],d[b]], palette);
+				var approx = approximateColor([d[r],d[g],d[b]], palette);
+
+                var q = [];
+                r = (d[r] - approx[0]) / 8;
+                g = (d[g] - approx[1]) / 8;
+                b = (d[b] - approx[2]) / 8;
+	
+				// Diffuse the error for three colors
+				var n = 4*(x+1+y);
+                d[n] += r;
+                d[n+1] += g;
+                d[n+2] += b;
+
+                d[n+4] += r;
+                d[n+5] += g;
+                d[n+6] += b;
+				n=n+fw-4;
+                d[n] += r;
+                d[n+1] += g;
+                d[n+2] += b;
+
+                d[n+4] += r;
+                d[n+5] += g;
+                d[n+6] += b;
+
+                d[n+8] += r;
+                d[n+9] += g;
+                d[n+10] += b;
+				n=n+fw+8;
+                d[n] += r;
+                d[n+1] += g;
+                d[n+2] += b;
+
+
+/*
+				// Diffuse the error for three colors
+				//var n = 4*(x+1+y);
+                d[4*(x+y)+4 + 0] += r;
+                d[4*(x+y)+4 + 1] += g;
+                d[4*(x+y)+4 + 2] += b;
+
+                d[4*(x+y)+8 + 0] += r;
+                d[4*(x+y)+8 + 1] += g;
+                d[4*(x+y)+8 + 2] += b;
+
+                d[4*(x+y)+fw-4 + 0] += r;
+                d[4*(x+y)+fw-4 + 1] += g;
+                d[4*(x+y)+fw-4 + 2] += b;
+
+                d[4*(x+y)+fw + 0] += r;
+                d[4*(x+y)+fw + 1] += g;
+                d[4*(x+y)+fw + 2] += b;
+
+                d[4*(x+y)+fw+4 + 0] += r;
+                d[4*(x+y)+fw+4 + 1] += g;
+                d[4*(x+y)+fw+4 + 2] += b;
+
+                d[4*(x+y)+fw+fw+4 + 0] += r;
+                d[4*(x+y)+fw+fw+4 + 1] += g;
+                d[4*(x+y)+fw+fw+4 + 2] += b;
+
+                // Diffuse the error for three colors
+                d[4*(x+1)+4*w*(y  ) + 0] += q[r];
+                d[4*(x-1)+4*w*(y+1) + 0] += q[r];
+                d[4*(x  )+4*w*(y+1) + 0] += q[r];
+                d[4*(x+1)+4*w*(y+1) + 0] += q[r];
+                d[4*(x+2)+4*w*(y  ) + 0] += q[r];
+                d[4*(x  )+4*w*(y+2) + 0] += q[r];
+
+                d[4*(x+1)+4*w*(y  ) + 1] += q[g];
+                d[4*(x-1)+4*w*(y+1) + 1] += q[g];
+                d[4*(x  )+4*w*(y+1) + 1] += q[g];
+                d[4*(x+1)+4*w*(y+1) + 1] += q[g];
+                d[4*(x+2)+4*w*(y  ) + 1] += q[g];
+                d[4*(x  )+4*w*(y+2) + 1] += q[g];
+
+                d[4*(x+1)+4*w*(y  ) + 2] += q[b];
+                d[4*(x-1)+4*w*(y+1) + 2] += q[b];
+                d[4*(x  )+4*w*(y+1) + 2] += q[b];
+                d[4*(x+1)+4*w*(y+1) + 2] += q[b];
+                d[4*(x+2)+4*w*(y  ) + 2] += q[b];
+                d[4*(x  )+4*w*(y+2) + 2] += q[b];
+*/
+                        // Draw pixel
+                        d[i  ] = approx[0];
+                        d[i+1] = approx[1];
+                        d[i+2] = approx[2];
+
+				
+            }
+        }
+		
+        out_imgdata.data.set(d);
+        return out_imgdata;
+    };
+	
+    function atkinsonDitherOld(in_imgdata, ctx, palette, step, h, w) {
+        var out_imgdata = ctx.createImageData(in_imgdata);
+        var d = new Uint8ClampedArray(in_imgdata.data);
+        var out = new Uint8ClampedArray(in_imgdata.data);
+        var ratio = 1/8;
+
+        for (var y=0;y<h;y += step) {
+            for (var x=0;x<w;x += step) {
+                var i = (4*x) + (4*y*w);
+
+                var $i = function(x,y) {
+                    return (4*x) + (4*y*w);
+                };
+
+                // Define bytes
+                var r = i;
+                var g = i+1;
+                var b = i+2;
+                var a = i+3;
+
+                var color = new Array(d[r],d[g],d[b]);
+                var approx = approximateColor(color, palette);
+
+                var q = [];
+                q[r] = d[r] - approx[0];
+                q[g] = d[g] - approx[1];
+                q[b] = d[b] - approx[2];
+
+                // Diffuse the error for three colors
+                d[$i(x+step,y) + 0] += ratio * q[r];
+                d[$i(x-step,y+step) + 0] += ratio * q[r];
+                d[$i(x,y+step) + 0] += ratio * q[r];
+                d[$i(x+step,y+step) + 0] += ratio * q[r];
+                d[$i(x+(2*step),y) + 0] += ratio * q[r];
+                d[$i(x,y+(2*step)) + 0] += ratio * q[r];
+
+                d[$i(x+step,y) + 1] += ratio * q[g];
+                d[$i(x-step,y+step) + 1] += ratio * q[g];
+                d[$i(x,y+step) + 1] += ratio * q[g];
+                d[$i(x+step,y+step) + 1] += ratio * q[g];
+                d[$i(x+(2*step),y) + 1] += ratio * q[g];
+                d[$i(x,y+(2*step)) + 1] += ratio * q[g];
+
+                d[$i(x+step,y) + 2] += ratio * q[b];
+                d[$i(x-step,y+step) + 2] += ratio * q[b];
+                d[$i(x,y+step) + 2] += ratio * q[b];
+                d[$i(x+step,y+step) + 2] += ratio * q[b];
+                d[$i(x+(2*step),y) + 2] += ratio * q[b];
+                d[$i(x,y+(2*step)) + 2] += ratio * q[b];
+
+                var tr = approx[0];
+                var tg = approx[1];
+                var tb = approx[2];
+
+                // Draw a block
+                for (var dx=0;dx<step;dx++){
+                    for (var dy=0;dy<step;dy++){
+                        var di = i + (4 * dx) + (4 * w * dy);
+
+                        // Draw pixel
+                        out[di] = tr;
+                        out[di+1] = tg;
+                        out[di+2] = tb;
+
+                    }
+                }
+            }
+        }
+        out_imgdata.data.set(out);
+        return out_imgdata;
+    };
+
+    function errorDiffusionDither(in_imgdata, ctx, palette, step, h, w) {
+        var out_imgdata = ctx.createImageData(in_imgdata);
+        var d = new Uint8ClampedArray(in_imgdata.data);
+        var out = new Uint8ClampedArray(in_imgdata.data);
+        var ratio = 1/16;
+        var m = new Array(
+            [  1,  9,  3, 11 ],
+            [ 13,  5, 15,  7 ],
+            [  4, 12,  2, 10 ],
+            [ 16,  8, 14,  6 ]
+        );
+
+        for (var y=0;y<h;y += step) {
+            for (var x=0;x<w;x += step) {
+                var i = (4*x) + (4*y*w);
+
+                var $i = function(x,y) {
+                    return (4*x) + (4*y*w);
+                };
+
+                // Define bytes
+                var r = i;
+                var g = i+1;
+                var b = i+2;
+                var a = i+3;
+
+                var color = new Array(d[r],d[g],d[b]);
+                var approx = approximateColor(color, palette);
+
+                var q = [];
+                q[r] = d[r] - approx[0];
+                q[g] = d[g] - approx[1];
+                q[b] = d[b] - approx[2];
+
+                // Diffuse the error
+                d[$i(x+step,y)] =  d[$i(x+step,y)] + 7 * ratio * q[r];
+                d[$i(x-step,y+1)] =  d[$i(x-1,y+step)] + 3 * ratio * q[r];
+                d[$i(x,y+step)] =  d[$i(x,y+step)] + 5 * ratio * q[r];
+                d[$i(x+step,y+step)] =  d[$i(x+1,y+step)] + 1 * ratio * q[r];
+
+                d[$i(x+step,y)+1] =  d[$i(x+step,y)+1] + 7 * ratio * q[g];
+                d[$i(x-step,y+step)+1] =  d[$i(x-step,y+step)+1] + 3 * ratio * q[g];
+                d[$i(x,y+step)+1] =  d[$i(x,y+step)+1] + 5 * ratio * q[g];
+                d[$i(x+step,y+step)+1] =  d[$i(x+step,y+step)+1] + 1 * ratio * q[g];
+
+                d[$i(x+step,y)+2] =  d[$i(x+step,y)+2] + 7 * ratio * q[b];
+                d[$i(x-step,y+step)+2] =  d[$i(x-step,y+step)+2] + 3 * ratio * q[b];
+                d[$i(x,y+step)+2] =  d[$i(x,y+step)+2] + 5 * ratio * q[b];
+                d[$i(x+step,y+step)+2] =  d[$i(x+step,y+step)+2] + 1 * ratio * q[b];
+
+                // Color
+                var tr = approx[0];
+                var tg = approx[1];
+                var tb = approx[2];
+
+                // Draw a block
+                for (var dx=0;dx<step;dx++){
+                    for (var dy=0;dy<step;dy++){
+                        var di = i + (4 * dx) + (4 * w * dy);
+
+                        // Draw pixel
+                        out[di] = tr;
+                        out[di+1] = tg;
+                        out[di+2] = tb;
+
+                    }
+                }
+            }
+        }
+        out_imgdata.data.set(out);
+        return out_imgdata;
+    };
+	
+	function closestColor(in_imgdata, ctx, palette, step, h, w) {
+		var out_imgdata = ctx.createImageData(in_imgdata);
+        var out = new Uint8ClampedArray(in_imgdata.data);
+
+        for (var i = 0; i < out.length; i += 4) {
+            var approx = approximateColor([out[i], out[i + 1], out[i + 2]], palette);
+            out[i]     = approx[0];
+			out[i + 1] = approx[1];
+			out[i + 2] = approx[2];
+        }
+
+        out_imgdata.data.set(out);
+        return out_imgdata;
+    };
+
+    var DitherJS = function DitherJS (selector, opt) {
+        var self = this;
+
+        // Default
+        self.opt = opt || {};
+        self.opt.step = self.opt.step || 1; // works better with 1,3,5,7
+        self.opt.className = self.opt.className || 'dither';
+        self.opt.algorithm = self.opt.algorithm || 'ordered';
+        self.opt.palette = self.opt.palette || [
+            [0,0,0],
+            [255,0,255],
+            [0,255,255],
+            [255,255,255]
+        ];
+
+        /**
+        * Reload src image and put draw into it
+        * */
+        this._refreshDither = function(el) {
+            // Reload src
+            el.src = el.src + '?' + Math.random();
+            el.onload = function() {
+                var start_time = Date.now();
+                self._dither(el);
+                console.log('Microtime: ', Date.now()-start_time );
+            }
+        };
+
+        /**
+        * This does all the dirty things
+        * */
+        this._dither = function(el) {
+            var ditherCtx = this;
+
+            // Take image size
+            var h = el.clientHeight;
+            var w = el.clientWidth;
+
+
+            /**
+            * Threshold function
+            * */
+            var threshold = function(value) {
+                var result = value < 127 ? 0 : 255;
+                return result;
+            };
+
+            /**
+            * Given an image element substitute it with a canvas
+            * and return the context
+            * @param node - the image element
+            * @return context - drawing context
+            * */
+            this.getContext = function(el) {
+                var canvas = document.createElement('canvas');
+                // this can influence the quality of the acquistion
+                canvas.height = el.clientHeight;
+                canvas.width = el.clientWidth;
+                el.parentNode.replaceChild(canvas,el);
+
+                // Inherit classes
+                canvas.className = el.className;
+                canvas.className = canvas.className.replace(self.opt.className,' ');
+                // Inherit Styles
+
+                // Turn it off
+                // canvas.style.visibility = "hidden";
+
+                // Get the context
+                var ctx = canvas.getContext('2d');
+                ctx.imageSmoothingEnabled = false;
+                return ctx;
+            }
+
+
+            var ctx = this.getContext(el);
+
+            // Put the picture in
+            ctx.drawImage(el,0,0,w,h);
+
+            // Pick image data
+            var in_image = ctx.getImageData(0,0,w,h);
+
+            if (self.opt.algorithm == 'errorDiffusion')
+                var out_image = errorDiffusionDither(in_image, ctx, self.opt.palette, self.opt.step, h, w);
+            else if (self.opt.algorithm == 'ordered')
+                var out_image = orderedDither(in_image, ctx, self.opt.palette, self.opt.step, h, w);
+            else if (self.opt.algorithm == 'atkinson')
+                var out_image = atkinsonDither(in_image, ctx, self.opt.palette, self.opt.step, h, w);
+            else
+                throw new Error('Not a valid algorithm');
+
+            // Put image data
+            ctx.putImageData(out_image,0,0);
+
+            // Turn it on
+            //canvas.style.visibility = "visible";
+        }
+
+
+        /**
+        * Main
+        * */
+        try {
+            var elements = document.querySelectorAll(selector);
+
+            //  deal with multiple
+            for (var i=0;i<elements.length;i++) {
+                this._refreshDither(elements[i]);
+            }
+
+        } catch (e) {
+            // Officially not in the browser
+        }
+
+    };
+
+    DitherJS.orderedDither = orderedDither;
+    DitherJS.atkinsonDither = atkinsonDither;
+    DitherJS.errorDiffusionDither = errorDiffusionDither;
+    DitherJS.closestColor = closestColor;
+
+    return DitherJS;
+
+})(window);
+
+/**
+* Register AMD module
+* */
+if (typeof define === 'function' && define.amd) {
+    define('ditherjs', function(){
+        return DitherJS;
+    });
+};
+
+/**
+* Export class for node
+* */
+if (typeof module === "object" && module.exports) {
+    module.exports = DitherJS;
+}
+
+
+		</script>
+	</body>
+</html>
