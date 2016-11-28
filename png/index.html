@@ -160,7 +160,6 @@
 				
 				<input type="submit" id="update_button" value="Reload Source and Reset" />
 				<input type="button" onclick="alert('Encode Base64: Not Done Yet');" value="Base64 Encode" />
-				<input type="button" onclick="alert('Copy Image to Clipboard: Not Done Yet');" value="Copy Image" />
 				<input type="checkbox" onclick="set_fuzzy(this.checked);" />Fuzzy
 				<br>
 				
@@ -625,14 +624,18 @@ function reset_zoom() {
 //lowerarea.addEventListener('mouseenter', function(e) {
 
 document.addEventListener('wheel', function(e) {
-	if(e.ctrlKey || e.shiftKey || e.altKey) return;
+	if(e.ctrlKey || e.shiftKey) return;
 	
 	e.preventDefault();   // Stop the window from moving
+
+	var zoom_amount = e.altKey ? 1.01 : 1.5;
+
 	if(e.deltaY<0){
-		zoom = zoom * 1.5;
+		zoom = zoom * zoom_amount;
 	} else {
-		zoom = zoom / 1.5;
+		zoom = zoom / zoom_amount;
 	}
+	console.log("Zoom = " + zoom);
 	update_canvas();
 }, false);
 
