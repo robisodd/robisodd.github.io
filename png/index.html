@@ -565,6 +565,7 @@ function set_image_dimensions(width, height, borderRadius, bodyURL, bodyWidth, b
 	mainCanvas.style.borderRadius = borderRadius;
 	watchBody.src = bodyURL;
 	canvasDiv.style.padding = bodyPaddingTop + "px 0px";
+	mainCanvasCTX.imageSmoothingEnabled = fuzzy_mode;  // Needed cause it resets when resizing the image
 }
 
 function set_brightness(value) {
