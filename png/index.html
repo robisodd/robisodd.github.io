@@ -89,14 +89,13 @@
 		width: 100%;
 	}
 	
-	
+	/*
 	.inputWrapper {
 		height: 32px;
 		width: 100%;
 		overflow: hidden;
 		position: relative;
 		cursor: pointer;
-		/*Using a background color, but you can use a background image to represent a button*/
 		background-color: #DDF;
 	}
 	.fileInput {
@@ -106,14 +105,12 @@
 		top: 0;
 		right: 0;
 		z-index: 99;
-		/*This makes the button huge. If you want a bigger button, increase the font size*/
 		font-size:50px;
-		/*Opacity settings for all browsers*/
 		opacity: 0;
 		-moz-opacity: 0;
 		filter:progid:DXImageTransform.Microsoft.Alpha(opacity=0)
 	}
-	
+	*/
 </style>
 
 <script>
@@ -156,9 +153,10 @@
 			<form>
 				Image Source:<input type="text" id="theurl" value="https://i.imgur.com/N377J99.png" />
 				
-				<div class="inputWrapper"><input type="file" class="fileInput" accept="image/*" id="filebox" onchange="load_file(event)" /></div>
+				<div class="inputWrapper">
+				<input type="file" class="fileInput" accept="image/*" id="filebox" onchange="load_file(event)" />
+				</div>
 				
-				<br>
 				
 				<input type="submit" id="update_button" value="Reload Source and Reset" />
 				<input type="button" onclick="alert('Encode Base64: Not Done Yet');" value="Base64 Encode" />
@@ -206,6 +204,7 @@
 			<input type="button" onclick="alert('Increment Brightness: Not done yet');" value="+" />
 			<span id="brightness">0</span>
 			<br>
+			
 			Contrast:
 			<input type="button" onclick="alert('Decrement Contrast: Not done yet');" value="-" />
 			<input type="range" min="-255" max="255" value="0" step="1" oninput="set_contrast(this.value)" />
@@ -288,8 +287,8 @@
 	chalk_mask.src = CHALK_MASK;
 
 	var source_image_obj = new Image();
-	source_image_obj.addEventListener('load', function() {image_loaded();}, false); // Reset (x,y,zoom) when new image loads
 	source_image_obj.addEventListener("error", load_null_image);
+	source_image_obj.addEventListener('load', function() {image_loaded();}, false); // Reset (x,y,zoom) when new image loads
 	
 	var load_null_image = function() {
 		console.log("ERROR loading image.  Loading null image.");
@@ -425,6 +424,9 @@
 
 // We start by checking if the browser supports the Clipboard object.
 //  If not, we need to create a contenteditable element that catches all pasted data.
+
+// Commenting this section out since it messes up text selection and such.  Hopefully it won't be missed.
+/*
 if (!window.Clipboard) {
    var pasteCatcher = document.createElement("div");
 	
@@ -439,6 +441,7 @@ if (!window.Clipboard) {
    pasteCatcher.focus();
    document.addEventListener("click", function() { pasteCatcher.focus(); });
 }
+*/
 
 // Add the paste event listener
 window.addEventListener("paste", pasteHandler);
@@ -446,17 +449,19 @@ window.addEventListener("paste", pasteHandler);
 
 /* Handle paste events */
 function pasteHandler(e) {
-	console.log("Detected Paste Attempt");
+	//console.log("Detected Paste Attempt");
+	if (theurl === document.activeElement) return;  // If you were pasting into the textbox, ignore paste.
+	
 	//var pastedData = e.clipboardData.getData('Text');
 	// We need to check if event.clipboardData is supported (Chrome)
 	if (e.clipboardData) {
 		// Get the items from the clipboard
 		var items = e.clipboardData.items;
 		if (items) {
-			console.log("Detected " + items.length + " Items");
+			//console.log("Detected " + items.length + " Items");
 			// Loop through all items, looking for any kind of image
 			for (var i = 0; i < items.length; i++) {
-				console.log("Item " + i + " (" + items[i].type + "): ");
+				//console.log("Item " + i + " (" + items[i].type + "): ");
 				if (items[i].type.indexOf("image") !== -1) {
 					// We need to represent the image as a file,
 					var blob = items[i].getAsFile();
@@ -480,7 +485,7 @@ function pasteHandler(e) {
 	// If we can't handle clipboard data directly (Firefox), 
 	// we need to read what was pasted from the contenteditable element
 	} else {
-		console.log("No clipboard data");
+		//console.log("No clipboard data");
 		// This is a cheap trick to make sure we read the data
 		// AFTER it has been inserted.
 		setTimeout(checkInput, 1);
@@ -607,13 +612,15 @@ function reset_zoom() {
 // =======================================================================================================	
 //  Mouse / Touch Functions
 // =======================================================================================================
-function update_cursor(value) {
-	document.body.style.cursor = value;
-}
 
-function auto_cursor() {
-	document.body.style.cursor = "auto";
-}
+//update_cursor("grab");
+//update_cursor("grabbing");
+//function update_cursor(value) {
+//	document.body.style.cursor = value;
+//}
+//function auto_cursor() {
+//	document.body.style.cursor = "auto";
+//}
 
 //lowerarea.addEventListener('mouseenter', function(e) {
 
@@ -631,15 +638,12 @@ document.addEventListener('wheel', function(e) {
 
 
 document.addEventListener('mousemove', function(e) {
-update_cursor("grab");
 	if(e.buttons==0) {
 		mouse_mode = 0;
-		update_cursor("grab");
 	}
 	if(mouse_mode === 0) {
 		e.preventDefault();
 		if(e.buttons == 1) {  // only left button
-			update_cursor("grabbing");
 			image_x = image_x + zoom * (mouse_x - e.clientX);
 			image_y = image_y + zoom * (mouse_y - e.clientY);
 			update_canvas();							// draw the image in its new position
@@ -650,12 +654,10 @@ update_cursor("grab");
 
 toparea.addEventListener('mousedown', function(e) {
 	mouse_mode = 1;
-	auto_cursor();
 }, false);
 
 document.addEventListener('mouseup', function(e) {
 	mouse_mode = 0;
-	auto_cursor();
 }, false);
 
 		
