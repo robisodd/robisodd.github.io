@@ -35,6 +35,7 @@
 		For instance, loading: https://developer.pebble.com/assets/images/guides/pebble-apps/display-animations/mask.png
 		Even though they're restricted, they can work if manually copied/pasted
 	Maybe implement mouse cursors?
+	Maybe real-time file size (PNG storage and PBI in memory)
 
 
 -------------------------------------------------------------------------------------- -->
@@ -901,7 +902,6 @@ function robAtkinsonDitherBW(d, w) {
 }
 */
 function robAtkinsonDitherBW(d, w) {
-console.log("start: " + d.length);
 	var r, g, b, y, n;
 	var bpp = 4;      // bpp = bytes per pixel
 	var ww = bpp * w; // ww = image width in bytes
@@ -952,7 +952,6 @@ console.log("start: " + d.length);
 		// Draw pixel
 		d[i  ] = d[i+1] = d[i+2] = y;
 	}
-	console.log("end: " + d.length);
 }
 	
 var dither_table = new Uint8Array([   0, 128,  32, 160,   8, 136,  40, 168, // 8x8 Bayer ordered dithering
