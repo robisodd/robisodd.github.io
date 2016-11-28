@@ -27,7 +27,6 @@
   TODO
 --------------------------------------------------------------------------------------
 	Force color restriction to 16, 4 and 2 colors (4bit, 2bit and 1bit)
-	Encode Base64
 	Handle transparency
 	Make it look better
 	Make File button/text look better
@@ -174,7 +173,7 @@
 				
 				
 				<input type="submit" id="update_button" value="Reload Source and Reset" />
-				<input type="button" onclick="alert('Encode Base64: Not Done Yet');" value="Base64 Encode" />
+				<input type="button" onclick="prompt('Copy to clipboard: Ctrl+C, Enter', mainCanvas.toDataURL());" value="Base64 Encode" />
 				<input type="checkbox" onclick="set_fuzzy(this.checked);" />Fuzzy
 				<br>
 				
@@ -248,9 +247,6 @@
 </center>
 <!-- ---------------------------------------------------------------------------------------------------------------------------------------- -->
 <script>
-// Image to 
-//prompt("Copy to clipboard: Ctrl+C, Enter", oArg.Document);
-
 	// =======================================================================================================	
 	//  Global, Init and Canvas
 	// =======================================================================================================
