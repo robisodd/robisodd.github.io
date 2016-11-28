@@ -175,7 +175,7 @@
 				
 				<input type="submit" id="update_button" value="Reload Source and Reset" />
 				<input type="button" onclick="prompt('Copy to clipboard: Ctrl+C, Enter', mainCanvas.toDataURL());" value="Base64 Encode" />
-				<input type="checkbox" onclick="set_fuzzy(this.checked);" />Fuzzy
+				<input type="checkbox" onclick="set_fuzzy(this.checked);" />Fuzzy Zoom
 				<br>
 				
 			</form>
@@ -460,7 +460,6 @@ window.addEventListener("paste", pasteHandler);
 /* Handle paste events */
 function pasteHandler(e) {
 	//console.log("Detected Paste Attempt");
-	if (theurl === document.activeElement) return;  // If you were pasting into the textbox, ignore paste.
 	
 	//var pastedData = e.clipboardData.getData('Text');
 	// We need to check if event.clipboardData is supported (Chrome)
@@ -483,12 +482,14 @@ function pasteHandler(e) {
 					// The URL can then be used as the source of an image
 					createImage(source);
 				} else if (items[i].type.indexOf("text/plain") !== -1) {
-					// looks like text was pasted.  Copy it into the URL bar
-					items[i].getAsString(function(str) {
-						//if(str.indexOf("data:image") === 0) source_image_obj.src = str;
-						theurl.value = str;
-						load_url();
-					});
+					if (theurl !== document.activeElement) {  // If you were pasting into the textbox, ignore paste text (images, ok).
+						// looks like text was pasted.  Copy it into the URL bar
+						items[i].getAsString(function(str) {
+							//if(str.indexOf("data:image") === 0) source_image_obj.src = str;
+							theurl.value = str;
+							load_url();
+						});
+					}
 				}
 			}
 		}
