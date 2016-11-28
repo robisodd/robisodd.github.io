@@ -4,6 +4,9 @@
   Notes:
 --------------------------------------------------------------------------------------
 	CTRL-V to paste image or URL or Base64 from clipboard
+	CTRL-V with a URL 
+	Hold ALT to zoom more subtly
+	
 	
 --------------------------------------------------------------------------------------
   References
@@ -24,7 +27,15 @@
   TODO
 --------------------------------------------------------------------------------------
 	Force color restriction to 16, 4 and 2 colors (4bit, 2bit and 1bit)
-	Encode and Decode Base64 (all different forms)
+	Encode Base64
+	Handle transparency
+	Make it look better
+	Make File button/text look better
+	Test more on mobile
+	Figure out how to *DETECT* cross-site restricted images
+		For instance, loading: https://developer.pebble.com/assets/images/guides/pebble-apps/display-animations/mask.png
+		Even though they're restricted, they can work if manually copied/pasted
+	Maybe implement mouse cursors?
 
 
 -------------------------------------------------------------------------------------- -->
@@ -87,6 +98,10 @@
 		position: relative;
 		background: blue;
 		width: 100%;
+	}
+	.incdec {
+		height: 50px;
+		width: 50px;
 	}
 	
 	/*
@@ -198,16 +213,16 @@
 			<br>
 			
 			Brightness: 
-			<input type="button" onclick="alert('Decrement Brightness: Not done yet');" value="-" />
+			<input type="button" class="incdec" onclick="set_brightness(brightness>-255?brightness-1:-255);" value="-" />
 			<input type="range" min="-255" max="255" value="0" step="1" oninput="set_brightness(this.value)" />
-			<input type="button" onclick="alert('Increment Brightness: Not done yet');" value="+" />
+			<input type="button" class="incdec" onclick="set_brightness(brightness<255?brightness+1:255);" value="+" />
 			<span id="brightness">0</span>
 			<br>
 			
 			Contrast:
-			<input type="button" onclick="alert('Decrement Contrast: Not done yet');" value="-" />
+			<input type="button" class="incdec" onclick="set_contrast(contrast>-255?contrast-1:-255);" value="-" />
 			<input type="range" min="-255" max="255" value="0" step="1" oninput="set_contrast(this.value)" />
-			<input type="button" onclick="alert('Increment Contrast: Not done yet');" value="+" />
+			<input type="button" class="incdec" onclick="set_contrast(contrast<255?contrast+1:255);" value="+" />
 			<span id="contrast">0</span>
 			<br>
 			
@@ -326,14 +341,13 @@
 	}
 
 	function update_canvas() {
-		mainCanvasCTX.imageSmoothingEnabled = fuzzy_mode;  // This shouldn't be necessary, but doesn't apply on pageload
-		
 		if(watch_type == WATCH_TYPE_ORIGINAL) {
 			mainCanvas.height = source_image_obj.height / zoom;
 			mainCanvas.width  = source_image_obj.width / zoom;
 			if (mainCanvas.height < 1) mainCanvas.height = 1;
 			if (mainCanvas.width  < 1) mainCanvas.width  = 1;
 			center_the_image_in_the_canvas();
+			mainCanvasCTX.imageSmoothingEnabled = fuzzy_mode;  // needed when resizing the image
 		}
 		
 		draw_image_to_canvas(mainCanvasCTX);
@@ -487,11 +501,12 @@ function pasteHandler(e) {
 		//console.log("No clipboard data");
 		// This is a cheap trick to make sure we read the data
 		// AFTER it has been inserted.
-		setTimeout(checkInput, 1);
+		//setTimeout(checkInput, 1);
 	}
 }
  
 /* Parse the input in the paste catcher element */
+/*
 function checkInput() {
    // Store the pasted content in a variable
    var child = pasteCatcher.childNodes[0];
@@ -507,7 +522,7 @@ function checkInput() {
 	  }
    }
 }
-
+*/
 /* Creates a new image from a given source */
 function createImage(source) {
    document.getElementById("theurl").value = "pasted image";
@@ -625,7 +640,7 @@ function reset_zoom() {
 
 document.addEventListener('wheel', function(e) {
 	if(e.ctrlKey || e.shiftKey) return;
-	
+
 	e.preventDefault();   // Stop the window from moving
 
 	var zoom_amount = e.altKey ? 1.01 : 1.5;
@@ -635,7 +650,6 @@ document.addEventListener('wheel', function(e) {
 	} else {
 		zoom = zoom / zoom_amount;
 	}
-	console.log("Zoom = " + zoom);
 	update_canvas();
 }, false);
 
