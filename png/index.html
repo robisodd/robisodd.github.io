@@ -174,7 +174,7 @@
 				
 				
 				<input type="submit" id="update_button" value="Reload Source and Reset" />
-				<input type="button" onclick="prompt('Copy to clipboard: Ctrl+C, Enter', mainCanvas.toDataURL());" value="Base64 Encode" />
+				<input type="button" onclick="base64_encode_image();" value="Base64 Encode" />
 				<input type="checkbox" onclick="set_fuzzy(this.checked);" />Fuzzy Zoom
 				<br>
 				
@@ -259,25 +259,15 @@
 	var canvasDiv = document.getElementById("canvasDiv");
 	var theurl    = document.getElementById("theurl");
 	var filebox   = document.getElementById("filebox");
+	var toparea   = document.getElementById("toparea");
+	var lowerarea = document.getElementById("lowerarea");
 
 	// mainCanvas is the image on the screen
 	var mainCanvas = document.getElementById("mainCanvas");
 	var mainCanvasCTX = document.getElementById("mainCanvas").getContext("2d");
 	mainCanvasCTX.imageSmoothingEnabled = fuzzy_mode;  // false = pixelated when zoomed in (default)
 	var canvas_w = mainCanvas.width, canvas_h = mainCanvas.height;
-	
-	//var tempCanvas = document.getElementById("tempCanvas");
-	//var tempCanvasCTX = document.getElementById("tempCanvas").getContext("2d");
-	//tempCanvasCTX.imageSmoothingEnabled = false;
-	
-	var toparea   = document.getElementById("toparea");
-	
-	var lowerarea = document.getElementById("lowerarea");
-	
-	// imageCanvas holds the whole scaled, dithered image.  Only exists in memory, never displayed.
-	var imageCanvas = document.createElement("canvas");
-	var imageCanvasCTX = imageCanvas.getContext("2d");
-	
+
 	// Image position and zoom displayed onto canvas
 	var image_x = 0, image_y = 0;
 	var zoom = 1;
@@ -331,7 +321,13 @@
 			console.log("WARNING: No file to open.");
 		}
 	}
-
+	
+	function base64_encode_image() {
+		var DataURL = mainCanvas.toDataURL();
+		console.log("DataURL = " + DataURL);
+		prompt('Copy to clipboard: Ctrl+C, Enter', DataURL);
+	}
+				
 	function center_the_image_in_the_canvas() {
 		image_x = source_image_obj.width  / 2;
 		image_y = source_image_obj.height / 2;
@@ -353,8 +349,6 @@
 		if(watch_type == WATCH_TYPE_CHALK) {
 			mainCanvasCTX.drawImage(chalk_mask, 0, 0);
 		}
-		
-		//console.log(mainCanvas.toDataURL());
 	}
 	
 	function keep_image_within_bounds(width, height) {
