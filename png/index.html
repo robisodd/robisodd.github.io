@@ -99,12 +99,11 @@
 		background: blue;
 		width: 100%;
 	}
+	
 	.incdec {
 		height: 50px;
 		width: 50px;
 	}
-	
-	
 	
 	#base64textdiv {
 		display: none;
@@ -120,47 +119,6 @@
 		white-space: pre-wrap;
 		word-wrap: break-word;
 	}
-
-	/*
-		textarea {
-	-webkit-box-sizing: border-box;
-	-moz-box-sizing: border-box;
-	box-sizing: border-box;
-
-	width: 100%;
-}
-
-
-	#base64text {
-		position:fixed;
-		top:0;
-		left:0;
-		right:0;
-		bottom:0;
-		visibility: visible;
-	}
-	
-	.inputWrapper {
-		height: 32px;
-		width: 100%;
-		overflow: hidden;
-		position: relative;
-		cursor: pointer;
-		background-color: #DDF;
-	}
-	.fileInput {
-		cursor: pointer;
-		height: 100%;
-		position:absolute;
-		top: 0;
-		right: 0;
-		z-index: 99;
-		font-size:50px;
-		opacity: 0;
-		-moz-opacity: 0;
-		filter:progid:DXImageTransform.Microsoft.Alpha(opacity=0)
-	}
-	*/
 </style>
 
 <script>
@@ -195,7 +153,9 @@
 		CHALK_MASK = "http://i.imgur.com/7X0jVnR.png";
 </script>
 </head>
+
 <!-- ---------------------------------------------------------------------------------------------------------------------------------------- -->
+
 <body onload="load_url();" style="height:100%;">
 <center>
 	<div id="content" style="height:100%; width:100%;">
@@ -209,15 +169,15 @@
 			</form>
 			
 			Dithering:
-			<input type="radio" name="dithering"  onclick="update_dither_mode(DITHER_MODE_NONE);" checked>No Dither
+			<input type="radio" name="dithering"  onclick="update_dither_mode(DITHER_MODE_NONE);">No Dither
 			<input type="radio" name="dithering"  onclick="update_dither_mode(DITHER_MODE_ORDERED);">Ordered Bayer
-			<input type="radio" name="dithering"  onclick="update_dither_mode(DITHER_MODE_ATKINSON);">Atkinson
+			<input type="radio" name="dithering"  onclick="update_dither_mode(DITHER_MODE_ATKINSON);" checked>Atkinson
 			<input type="radio" name="dithering"  onclick="update_dither_mode(DITHER_MODE_FLOYDSTEIN);">Floyd-Steinberg
 			<br>
 			
 			Colors:
-			<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_ORIGINAL);" checked>Original
-			<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_6BIT_COLOR);">64-Color
+			<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_ORIGINAL);">Original
+			<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_6BIT_COLOR);" checked>64-Color
 			<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_4BIT_COLOR);" disabled='disabled'>16-Color
 			<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_2BIT_COLOR);" disabled='disabled'>4-Color
 			<input type="radio" name="color_mode" onclick="update_color(COLOR_MODE_1BIT_COLOR);" disabled='disabled'>2-Color
@@ -227,9 +187,9 @@
 			<br>
 			
 			Watch:
-			<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_ORIGINAL);" checked>Original
+			<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_ORIGINAL);">Original
 			<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_APLITE);">Aplite
-			<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_BASALT);">Basalt
+			<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_BASALT);" checked>Basalt
 			<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_CHALK);">Chalk
 			<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_DIORITE);">Diorite
 			<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_EMERY);">Emery
@@ -274,11 +234,6 @@
 				<canvas id="mainCanvas" width="144" height="168" style="border:1px solid #d3d3d3;">Your browser does not support the HTML5 canvas tag.</canvas>
 			</div>
 		</div>
-		<!--
-		<div>
-			<canvas id="tempCanvas" width="30" height="30" style="border:1px solid #d3d3d3;border-radius: 0px; visibility: hidden;">Your browser does not support the HTML5 canvas tag.</canvas>
-		</div>
-		-->
 		
 	</div>
 
@@ -316,9 +271,9 @@
 	// MouseMode: 1=Don't move image (buttondown in upper area). 0=Go ahead and move image.
 	var mouse_mode = 0;
 	
-	var dither_mode = DITHER_MODE_NONE;
-	var color_mode  = COLOR_MODE_ORIGINAL;
-	var watch_type  = WATCH_TYPE_ORIGINAL;
+	var dither_mode = DITHER_MODE_ATKINSON;
+	var color_mode  = COLOR_MODE_6BIT_COLOR;
+	var watch_type  = WATCH_TYPE_BASALT;
 	
 	var background_color = "#FFFFFF"; //"#00AAFF";  // Background when image doesn't fill canvas
 	
