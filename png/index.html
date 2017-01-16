@@ -104,7 +104,42 @@
 		width: 50px;
 	}
 	
+	
+	
+	#base64textdiv {
+		display: none;
+	}
+	
+	#base64text {
+		-webkit-appearance: textarea;
+		background-color: white;
+		user-select: text;
+		flex-direction: column;
+		resize: auto;
+		cursor: auto;
+		white-space: pre-wrap;
+		word-wrap: break-word;
+	}
+
 	/*
+		textarea {
+	-webkit-box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	box-sizing: border-box;
+
+	width: 100%;
+}
+
+
+	#base64text {
+		position:fixed;
+		top:0;
+		left:0;
+		right:0;
+		bottom:0;
+		visibility: visible;
+	}
+	
 	.inputWrapper {
 		height: 32px;
 		width: 100%;
@@ -166,18 +201,11 @@
 	<div id="content" style="height:100%; width:100%;">
 		<div id="toparea" style="width:100%;">
 			<form>
-				Image Source:<input type="text" id="theurl" value="https://i.imgur.com/N377J99.png" />
+				Source:<input type="text" id="theurl" value="https://i.imgur.com/N377J99.png" /> <input type="submit" id="update_button" value="Load Source and Reset" />
 				
 				<div class="inputWrapper">
-				<input type="file" class="fileInput" accept="image/*" id="filebox" onchange="load_file(event)" />
+					<input type="file" class="fileInput" accept="image/*" id="filebox" onchange="load_file(event)" />
 				</div>
-				
-				
-				<input type="submit" id="update_button" value="Reload Source and Reset" />
-				<input type="button" onclick="base64_encode_image();" value="Base64 Encode" />
-				<input type="checkbox" onclick="set_fuzzy(this.checked);" />Fuzzy Zoom
-				<br>
-				
 			</form>
 			
 			Dithering:
@@ -207,10 +235,18 @@
 			<input type="radio" name="watch_type" onclick="update_watch_type(WATCH_TYPE_EMERY);">Emery
 			<br>
 			
-			<input type="button" value="Fit Width"  onclick="fit_width();" />
-			<input type="button" value="Fit Height" onclick="fit_height();" />
-			<input type="button" value="Reset Zoom" onclick="reset_zoom();" />
+			<input type="button" value="Fit Width"     onclick="fit_width();" />
+			<input type="button" value="Fit Height"    onclick="fit_height();" />
+			<input type="button" value="Reset Zoom"    onclick="reset_zoom();" />
+			<input type="button" value="Base64 Encode" onclick="base64_encode_image();" />
+			<input type="checkbox" onclick="set_fuzzy(this.checked);" />Fuzzy Zoom
 			<br>
+			
+			<div id="base64textdiv">
+				<textarea id="base64text" onclick="this.select();">no data</textarea>
+				<input type="button" value="Hide Base64 Text" onclick="base64_hide();" />
+				<br>
+			</div>
 			
 			Brightness: 
 			<input type="button" class="incdec" onclick="set_brightness(brightness>-255?brightness-1:-255);" value="-" />
@@ -245,6 +281,7 @@
 		-->
 		
 	</div>
+
 </center>
 <!-- ---------------------------------------------------------------------------------------------------------------------------------------- -->
 <script>
@@ -255,13 +292,15 @@
 	var contrast=0;
 	var fuzzy_mode = false;  // Whether zoomed pixels are blocks or blurred
 	
-	var watchBody = document.getElementById("watchBody");
-	var canvasDiv = document.getElementById("canvasDiv");
-	var theurl    = document.getElementById("theurl");
-	var filebox   = document.getElementById("filebox");
-	var toparea   = document.getElementById("toparea");
-	var lowerarea = document.getElementById("lowerarea");
-
+	var watchBody     = document.getElementById("watchBody");
+	var canvasDiv     = document.getElementById("canvasDiv");
+	var theurl        = document.getElementById("theurl");
+	var filebox       = document.getElementById("filebox");
+	var toparea       = document.getElementById("toparea");
+	var lowerarea     = document.getElementById("lowerarea");
+	var base64text    = document.getElementById("base64text");
+	var base64textdiv = document.getElementById("base64textdiv");
+	
 	// mainCanvas is the image on the screen
 	var mainCanvas = document.getElementById("mainCanvas");
 	var mainCanvasCTX = document.getElementById("mainCanvas").getContext("2d");
@@ -322,10 +361,23 @@
 		}
 	}
 	
+	function base64_hide() {
+		base64textdiv.style.display = 'none';
+	}
+
 	function base64_encode_image() {
+		if(mainCanvas.width>500 || mainCanvas.height>500) {
+			var r = confirm("Image is very large, Base64 conversion will take a while.  Continue?");
+			if (!r) return;
+		}
+		
 		var DataURL = mainCanvas.toDataURL();
-		console.log("DataURL = " + DataURL);
-		prompt('Copy to clipboard: Ctrl+C, Enter', DataURL);
+		//console.log("DataURL = " + DataURL);
+		//theurl.value = DataURL; // Fails for text over, um, lots of text.
+		//prompt('Copy to clipboard: Ctrl+C, Enter', DataURL); // Fails for text over 2000 characters
+
+		base64text.value = DataURL;
+		base64textdiv.style.display = 'block';
 	}
 				
 	function center_the_image_in_the_canvas() {
